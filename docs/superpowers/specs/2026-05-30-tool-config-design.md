@@ -112,7 +112,7 @@ veron claude my-model
 
 ### Integration with `veron create`
 
-The `ValidateModelfile` helper should also validate TOOL block parameters when creating a profile. Same validation rules as above.
+The `ValidateModelfile` helper should also validate TOOL block parameters when creating a profile. Same validation rules as above. Unknown parameters in TOOL blocks are allowed (passthrough) — they don't cause validation failure. Only known parameters with invalid values are rejected. This matches the run-time behavior: Veron doesn't need to know every Claude Code flag to be useful.
 
 ## Data Structures
 

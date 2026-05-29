@@ -8,6 +8,9 @@ Manage llama.cpp models and launch Claude Code against them, similar to how Olla
 # List all available model profiles
 veron ls
 
+# Create a profile from a modelfile (with validation)
+veron create my-model /path/to/modelfile
+
 # Serve a model profile (foreground)
 veron serve minicpm
 
@@ -30,6 +33,7 @@ veron v
 | Command | Short | Description |
 |---------|-------|-------------|
 | `list` | `ls` | List all available modelfile profiles |
+| `create <name> <path>` | — | Copy and validate a modelfile as a profile into `~/.veron/modelfiles/` |
 | `serve <name>` | — | Start llama-server with the given profile (runs in foreground) |
 | `claude <name>` | — | Start llama-server, set env vars, then launch `claude code`. Auto-stops when claude exits |
 | `stop` | — | Stop a previously started llama-server |
@@ -57,6 +61,28 @@ veron v
 | `--batch-size <n>` | Batch size | *(auto)* |
 | `--wait <n>` | Seconds to wait for server readiness | 30 |
 
+## Create Options
+
+| Option | Description |
+|--------|-------------|
+| `<name>` | Profile name (alphanumeric, hyphens, underscores only) |
+| `<path>` | Path to the source modelfile on disk |
+
+The `create` command validates the modelfile before copying it:
+- Source file must exist
+- Name must be valid (alphanumeric + `-` + `_`)
+- FROM directive must be present and resolve to an actual `.gguf` on disk
+- All parameters must use recognized keys with valid values
+- Unknown parameter keys are rejected with error (catches typos)
+
+```bash
+# Create a profile from a modelfile
+veron create my-model ~/my-modelfiles/qwopus.modelfile
+
+# Overwrite an existing profile
+veron create qwopus ~/updated-modelfile
+```
+
 ## Modelfiles
 
 All model profiles are defined as modelfiles in `~/.veron/modelfiles/`. **No extension required** — create files with any name you like.
@@ -77,12 +103,65 @@ PARAMETER repeat_penalty 1.05
 PARAMETER n_gpu_layers 99
 PARAMETER batch_size 512
 PARAMETER wait 30
+
+# ── Claude Code configuration ──────────────
+TOOL claude-code
+  PARAMETER permission-mode auto
+  PARAMETER tools Bash,Edit,Read,Write
+  PARAMETER append-system-prompt "You are working with a local model"
+  PARAMETER effort high
+END_TOOL
 ```
 
 - **`FROM`** — the model to use (filename or full path to `.gguf`)
 - **`PARAMETER <key> <value>`** — any of the serve options listed above
+- **`TOOL <name>`** / **`END_TOOL`** — tool-specific CLI argument configuration (see below)
 
 Lines starting with `#` are comments.
+
+### TOOL Blocks: Configuring Agentic Tools
+
+TOOL blocks let you define CLI arguments for agentic tools inside the modelfile. When you run `veron claude <name>`, Veron looks for a `TOOL claude-code` block and passes those parameters as flags to Claude Code.
+
+A single modelfile can contain configuration for multiple tools:
+
+```
+FROM Qwopus3.6-27B-v2-MTP-Q4_K_M.gguf
+
+PARAMETER port 5570
+PARAMETER context 128000
+
+# Claude Code configuration
+TOOL claude-code
+  PARAMETER permission-mode auto
+  PARAMETER tools Bash,Edit,Read,Write
+  PARAMETER append-system-prompt "You are working with a local model"
+  PARAMETER effort high
+END_TOOL
+
+# Future: other tool configurations (cursor, copilot, etc.)
+TOOL cursor
+  PARAMETER permission-mode plan
+  PARAMETER max-turns 50
+END_TOOL
+```
+
+The command name determines which TOOL block to use — `veron claude` uses `TOOL claude-code`. Future commands like `veron cursor` will use `TOOL cursor`. If no matching TOOL block exists, the tool launches with no extra arguments (backward compatible).
+
+**Supported Claude Code parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `permission-mode` | string | Permission mode: `auto`, `plan`, `dontAsk`, `bypassPermissions`, `default`, `acceptEdits` |
+| `tools` | string (comma-separated) | Restrict which built-in tools Claude can use |
+| `disallowedTools` | string (comma-separated) | Deny specific tools or scoped rules |
+| `allowedTools` | string (comma-separated) | Allow specific tools without prompting |
+| `append-system-prompt` | string | Append text to the default system prompt |
+| `effort` | string | Effort level: `low`, `medium`, `high`, `xhigh`, `max` |
+| `max-budget-usd` | float | Maximum dollar amount to spend (print mode only) |
+| `max-turns` | integer | Limit number of agentic turns (print mode only) |
+
+Unknown parameters are passed through as-is, so future Claude Code flags work without needing Veron updates.
 
 ### Multiple Profiles per Model
 
@@ -145,13 +224,16 @@ export ANTHROPIC_BASE_URL="http://localhost:<port>"
 export CLAUDE_CODE_ATTRIBUTION_HEADER=0
 ```
 
-Then launches `claude code` with those env vars.
+Then launches `claude code` with those env vars. TOOL block parameters are passed as CLI flags to the Claude Code command.
 
 ## Examples
 
 ```bash
 # List model profiles
 veron ls
+
+# Create a profile from a modelfile
+veron create my-model ~/modelfiles/my-modelfile
 
 # Serve a profile from modelfile
 veron serve minicpm
