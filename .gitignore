@@ -1,0 +1,4 @@
+## Place this file in the root of your project and ignore the default build output
+
+bin/
+obj/
