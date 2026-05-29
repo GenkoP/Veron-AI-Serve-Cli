@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Collections.Generic;
+using Veron;
 using Xunit;
 
 namespace Veron.Tests;
@@ -59,6 +60,36 @@ END_TOOL";
         using var tmp = CreateTempFile(content);
         var result = ProgramTestHelper.ParseToolBlocks(tmp.Path);
         Assert.Equal("You are helpful", result["claude-code"].Parameters["append-system-prompt"]);
+    }
+
+    [Fact]
+    public void ParseToolBlocks_Throws_On_Nested_Tools()
+    {
+        var content = @"FROM model.gguf
+TOOL claude-code
+  TOOL nested
+END_TOOL";
+        using var tmp = CreateTempFile(content);
+        Assert.Throws<InvalidOperationException>(() => ProgramTestHelper.ParseToolBlocks(tmp.Path));
+    }
+
+    [Fact]
+    public void ParseToolBlocks_Throws_On_END_TOOL_Without_TOOL()
+    {
+        var content = @"FROM model.gguf
+END_TOOL";
+        using var tmp = CreateTempFile(content);
+        Assert.Throws<InvalidOperationException>(() => ProgramTestHelper.ParseToolBlocks(tmp.Path));
+    }
+
+    [Fact]
+    public void ParseToolBlocks_Throws_On_Unclosed_TOOL()
+    {
+        var content = @"FROM model.gguf
+TOOL claude-code
+  PARAMETER effort high";
+        using var tmp = CreateTempFile(content);
+        Assert.Throws<InvalidOperationException>(() => ProgramTestHelper.ParseToolBlocks(tmp.Path));
     }
 
     static TempFile CreateTempFile(string content)
