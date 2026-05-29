@@ -406,6 +406,127 @@ static class Program
         }
     }
 
+    static bool IsValidName(string name) =>
+        name.Length > 0 && name.All(c => char.IsLetterOrDigit(c) || c == '-' || c == '_');
+
+    static readonly HashSet<string> KnownParams = new()
+    {
+        "alias", "port", "context", "jinja", "flash_attention",
+        "repeat_penalty", "n_gpu_layers", "batch_size", "wait"
+    };
+
+    static List<string> ValidateModelfile(string sourcePath, string name, string modelsDir)
+    {
+        var errors = new List<string>();
+
+        // Check name validity
+        if (!IsValidName(name))
+        {
+            errors.Add($"Error: invalid name \"{name}\": names must be alphanumeric, hyphens, or underscores");
+            return errors; // no point checking further
+        }
+
+        // Read lines
+        string[] lines;
+        try
+        {
+            lines = File.ReadAllLines(sourcePath);
+        }
+        catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+        {
+            errors.Add($"Error: cannot read modelfile: {ex.Message}");
+            return errors;
+        }
+
+        // Check FROM directive exists
+        string? from = null;
+        foreach (var rawLine in lines)
+        {
+            string line = rawLine.Trim();
+            if (line.Length == 0 || line.StartsWith('#')) continue;
+            if (line.StartsWith("FROM ", StringComparison.OrdinalIgnoreCase))
+            {
+                from = line[5..].Trim().Trim('"').Trim('\'');
+                break;
+            }
+        }
+
+        if (from is null)
+        {
+            errors.Add("Error: no FROM directive found in modelfile");
+            return errors;
+        }
+
+        // Resolve model path (same logic as ParseModelfile)
+        string? modelPath = null;
+
+        if (from.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase) && File.Exists(from))
+        {
+            modelPath = from;
+        }
+        else if (from.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase))
+        {
+            string candidate = Path.Join(modelsDir, from);
+            if (File.Exists(candidate))
+                modelPath = candidate;
+        }
+        else if (File.Exists(Path.Join(modelsDir, from + ".gguf")))
+        {
+            modelPath = Path.Join(modelsDir, from + ".gguf");
+        }
+
+        if (modelPath is null)
+        {
+            errors.Add($"Error: model \"{from}\" not found in {modelsDir}");
+            return errors;
+        }
+
+        // Validate PARAMETER directives
+        foreach (var rawLine in lines)
+        {
+            string line = rawLine.Trim();
+            if (!line.StartsWith("PARAMETER", StringComparison.OrdinalIgnoreCase)) continue;
+
+            string rest = line[9..].Trim();
+            int spaceIdx = rest.IndexOf(' ');
+            if (spaceIdx < 0) continue;
+
+            string key = rest[..spaceIdx].Trim().ToLowerInvariant();
+            string value = rest[(spaceIdx + 1)..].Trim();
+
+            // Strip quotes from value
+            if (value.Length >= 2 && ((value[0] == '"' && value[^1] == '"') ||
+                                      (value[0] == '\'' && value[^1] == '\'')))
+                value = value[1..^1];
+
+            // Check for unknown keys
+            if (!KnownParams.Contains(key))
+            {
+                errors.Add($"Error: unknown parameter key: \"{key}\" (did you mean one of: alias, port, context, jinja, flash_attention, repeat_penalty, n_gpu_layers, batch_size, wait?)");
+                return errors;
+            }
+
+            // Try to apply the parameter — catches invalid values
+            var testCfg = new ModelConfig();
+            try
+            {
+                ApplyParameter(testCfg, key, value);
+            }
+            catch (FormatException)
+            {
+                errors.Add($"Error: invalid parameter \"{key}\": \"{value}\" is not a valid value for {key}");
+                return errors;
+            }
+            catch (OverflowException)
+            {
+                errors.Add($"Error: invalid parameter \"{key}\": \"{value}\" is out of range");
+                return errors;
+            }
+        }
+
+        return errors;
+    }
+
     // ── ModelConfig — resolved config after modelfile + CLI overlay ────────
 
     class ModelConfig
