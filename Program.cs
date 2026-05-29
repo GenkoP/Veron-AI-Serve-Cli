@@ -101,7 +101,7 @@ public static class Program
 
     static void CmdServe(Dictionary<string, string> opts, string modelsDir)
     {
-        var cfg = LoadConfig(opts, modelsDir);
+        var cfg = LoadConfig(opts, modelsDir, out _);
 
         var cmd = BuildLlamaCmd(cfg);
 
@@ -135,7 +135,7 @@ public static class Program
 
     static void CmdClaude(Dictionary<string, string> opts, string modelsDir)
     {
-        var cfg = LoadConfig(opts, modelsDir);
+        var cfg = LoadConfig(opts, modelsDir, out string? modelfilePath);
 
         var cmd = BuildLlamaCmd(cfg);
 
@@ -156,9 +156,45 @@ public static class Program
 
         Console.WriteLine("Server is ready at " + baseUrl);
 
-        // ── Launch claude code ────────────────────────────────────────────
+        // ── Parse TOOL blocks from modelfile ────────────────────────────
+        string toolName = "claude-code";
+        Dictionary<string, ToolConfig>? toolConfigs = null;
+
+        if (modelfilePath is not null)
+        {
+            try { toolConfigs = ParseToolBlocks(modelfilePath); }
+            catch (InvalidOperationException ex)
+            {
+                Console.Error.WriteLine(ex.Message);
+                Environment.Exit(1);
+            }
+        }
+
+        // ── Build claude code CLI arguments ─────────────────────────────
+        var claudeArgs = new List<string> { "code" };
+
+        if (toolConfigs is not null && toolConfigs.TryGetValue(toolName, out var toolCfg))
+        {
+            foreach (var (key, value) in toolCfg.Parameters)
+            {
+                // Validate known parameters — unknown pass through silently
+                var valErrors = ValidateClaudeCodeParameter(key, value);
+                if (valErrors.Count > 0)
+                {
+                    Console.Error.WriteLine(valErrors[0]);
+                    Environment.Exit(1);
+                }
+
+                claudeArgs.Add("--" + key);
+                claudeArgs.Add(value);
+            }
+
+            Console.WriteLine("Using TOOL claude-code config from modelfile");
+        }
+
+        // ── Launch claude code ─────────────────────────────────────────
         string claudeBin = opts.GetValueOrDefault("claude-bin", DefaultClaudeBin);
-        var claudePsi = new ProcessStartInfo(claudeBin, "code")
+        var claudePsi = new ProcessStartInfo(claudeBin, string.Join(" ", claudeArgs.Select(EscapeArg)))
         {
             UseShellExecute = false,
         };
@@ -169,6 +205,11 @@ public static class Program
         Console.WriteLine("Launching claude code …");
         Console.WriteLine("  ANTHROPIC_BASE_URL             = " + baseUrl);
         Console.WriteLine("  CLAUDE_CODE_ATTRIBUTION_HEADER = 0");
+
+        // Print the tool args that were applied
+        if (claudeArgs.Count > 1)
+            Console.WriteLine("  TOOL claude-code args        = " + string.Join(" ", claudeArgs.Skip(1)));
+
         Console.WriteLine();
 
         try
@@ -183,7 +224,7 @@ public static class Program
             Environment.Exit(1);
         }
 
-        // ── Tear down the server ──────────────────────────────────────────
+        // ── Tear down the server ─────────────────────────────────────────
         Console.WriteLine("\nclaude code exited. Stopping llama-server …");
         if (!serverProc.HasExited)
             serverProc.Kill(true);
@@ -263,13 +304,13 @@ public static class Program
     /// <summary>
     /// Resolves the modelfile name, parses it, then overlays CLI flags on top.
     /// </summary>
-    static ModelConfig LoadConfig(Dictionary<string, string> opts, string modelsDir)
+    static ModelConfig LoadConfig(Dictionary<string, string> opts, string modelsDir, out string? mfPath)
     {
         string raw = opts.GetValueOrDefault("model")
                 ?? throw new ArgumentNullException("model argument is required for serve/claude");
 
         // ── Step 1: find the modelfile ─────────────────────────────────────
-        string? mfPath = FindModelfile(raw);
+        mfPath = FindModelfile(raw);
 
         if (mfPath is null)
             throw new FileNotFoundException("No modelfile found for '" + raw + "' in " + ModelfilesDir);
