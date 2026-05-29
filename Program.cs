@@ -740,6 +740,43 @@ public static class Program
             }
         }
 
+        // ── Validate TOOL blocks ────────────────────────────────
+        var toolErrors = ValidateToolBlocks(sourcePath, modelsDir);
+        errors.AddRange(toolErrors);
+
+        return errors;
+    }
+
+    public static List<string> ValidateToolBlocks(string sourcePath, string modelsDir)
+    {
+        var errors = new List<string>();
+
+        // Parse TOOL blocks — this will throw on structural errors (END_TOOL without TOOL, etc.)
+        Dictionary<string, ToolConfig>? toolConfigs;
+        try
+        {
+            toolConfigs = ParseToolBlocks(sourcePath);
+        }
+        catch (InvalidOperationException ex)
+        {
+            errors.Add(ex.Message);
+            return errors;
+        }
+
+        // Validate parameters in each TOOL block
+        foreach (var (_, toolCfg) in toolConfigs)
+        {
+            foreach (var (key, value) in toolCfg.Parameters)
+            {
+                var paramErrors = ValidateClaudeCodeParameter(key, value);
+                if (paramErrors.Count > 0)
+                {
+                    errors.Add($"Error in TOOL \"{toolCfg.Name}\": {paramErrors[0]}");
+                    return errors;
+                }
+            }
+        }
+
         return errors;
     }
 
@@ -980,4 +1017,7 @@ public static class ProgramTestHelper
 
     public static List<string> ValidateClaudeCodeParameter(string key, string value) =>
         Program.ValidateClaudeCodeParameter(key, value);
+
+    public static List<string> ValidateToolBlocks(string sourcePath, string name, string modelsDir) =>
+        Program.ValidateToolBlocks(sourcePath, modelsDir);
 }

@@ -160,6 +160,55 @@ TOOL claude-code
         Assert.Empty(errors);
     }
 
+    [Fact]
+    public void ValidateModelfile_Rejects_Invalid_Tool_Param()
+    {
+        var content = @"FROM MiniCPM5-1B-Q4_K_M.gguf
+TOOL claude-code
+  PARAMETER effort invalid-value
+END_TOOL";
+        using var tmp = CreateTempFile(content);
+        var errors = ProgramTestHelper.ValidateToolBlocks(tmp.Path, "test-name", "/home/genkop/Workspace/llama-cpp/models");
+        Assert.NotEmpty(errors);
+    }
+
+    [Fact]
+    public void ValidateModelfile_Accepts_Valid_Tool_Param()
+    {
+        var content = @"FROM MiniCPM5-1B-Q4_K_M.gguf
+TOOL claude-code
+  PARAMETER permission-mode auto
+  PARAMETER effort high
+END_TOOL";
+        using var tmp = CreateTempFile(content);
+        var errors = ProgramTestHelper.ValidateToolBlocks(tmp.Path, "test-name", "/home/genkop/Workspace/llama-cpp/models");
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void ValidateModelfile_Passthrough_Unknown_Tool_Param()
+    {
+        var content = @"FROM MiniCPM5-1B-Q4_K_M.gguf
+TOOL claude-code
+  PARAMETER some-future-flag anything
+END_TOOL";
+        using var tmp = CreateTempFile(content);
+        var errors = ProgramTestHelper.ValidateToolBlocks(tmp.Path, "test-name", "/home/genkop/Workspace/llama-cpp/models");
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void ValidateModelfile_Rejects_Nested_Tools()
+    {
+        var content = @"FROM MiniCPM5-1B-Q4_K_M.gguf
+TOOL claude-code
+  TOOL nested
+END_TOOL";
+        using var tmp = CreateTempFile(content);
+        var errors = ProgramTestHelper.ValidateToolBlocks(tmp.Path, "test-name", "/home/genkop/Workspace/llama-cpp/models");
+        Assert.NotEmpty(errors);
+    }
+
     static TempFile CreateTempFile(string content)
     {
         var path = Path.GetTempFileName();
