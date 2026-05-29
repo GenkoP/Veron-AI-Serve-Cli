@@ -32,6 +32,7 @@ static class Program
         {
             case "ls":
             case "list":    CmdList(modelsDir); break;
+            case "create":  CmdCreate(opts, modelsDir); break;
             case "h":
             case "help":    PrintUsage(); break;
             case "v":
@@ -720,6 +721,7 @@ USAGE
 
 COMMANDS
   ls, list            List all available modelfiles
+  create <name> <path> Create a profile from a modelfile (validates first)
   serve <name>        Start llama-server with the given model profile (foreground)
   claude <name>       Start llama-server then launch claude code (auto-stop after)
   stop                Stop a previously started llama-server
