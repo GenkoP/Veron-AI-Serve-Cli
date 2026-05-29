@@ -92,6 +92,74 @@ TOOL claude-code
         Assert.Throws<InvalidOperationException>(() => ProgramTestHelper.ParseToolBlocks(tmp.Path));
     }
 
+    [Fact]
+    public void ValidateClaudeCodeParameter_Valid_PermissionMode()
+    {
+        var errors = ProgramTestHelper.ValidateClaudeCodeParameter("permission-mode", "auto");
+        Assert.Empty(errors);
+        var errors2 = ProgramTestHelper.ValidateClaudeCodeParameter("permission-mode", "plan");
+        Assert.Empty(errors2);
+        var errors3 = ProgramTestHelper.ValidateClaudeCodeParameter("permission-mode", "bypassPermissions");
+        Assert.Empty(errors3);
+    }
+
+    [Fact]
+    public void ValidateClaudeCodeParameter_Invalid_PermissionMode()
+    {
+        var errors = ProgramTestHelper.ValidateClaudeCodeParameter("permission-mode", "invalid-mode");
+        Assert.NotEmpty(errors);
+    }
+
+    [Fact]
+    public void ValidateClaudeCodeParameter_Valid_Effort()
+    {
+        var errors = ProgramTestHelper.ValidateClaudeCodeParameter("effort", "high");
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void ValidateClaudeCodeParameter_Invalid_Effort()
+    {
+        var errors = ProgramTestHelper.ValidateClaudeCodeParameter("effort", "ultra");
+        Assert.NotEmpty(errors);
+    }
+
+    [Fact]
+    public void ValidateClaudeCodeParameter_Valid_MaxTurns()
+    {
+        var errors = ProgramTestHelper.ValidateClaudeCodeParameter("max-turns", "10");
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void ValidateClaudeCodeParameter_Invalid_MaxTurns()
+    {
+        var errors = ProgramTestHelper.ValidateClaudeCodeParameter("max-turns", "abc");
+        Assert.NotEmpty(errors);
+    }
+
+    [Fact]
+    public void ValidateClaudeCodeParameter_Valid_MaxBudgetUsd()
+    {
+        var errors = ProgramTestHelper.ValidateClaudeCodeParameter("max-budget-usd", "5.00");
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void ValidateClaudeCodeParameter_Invalid_MaxBudgetUsd()
+    {
+        var errors = ProgramTestHelper.ValidateClaudeCodeParameter("max-budget-usd", "not-a-number");
+        Assert.NotEmpty(errors);
+    }
+
+    [Fact]
+    public void ValidateClaudeCodeParameter_Unknown_Passthrough()
+    {
+        // Unknown params pass through without validation
+        var errors = ProgramTestHelper.ValidateClaudeCodeParameter("some-future-flag", "anything");
+        Assert.Empty(errors);
+    }
+
     static TempFile CreateTempFile(string content)
     {
         var path = Path.GetTempFileName();

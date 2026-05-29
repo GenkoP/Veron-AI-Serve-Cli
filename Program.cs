@@ -519,6 +519,65 @@ public static class Program
         "repeat_penalty", "n_gpu_layers", "batch_size", "wait"
     };
 
+    // ── Claude Code tool parameter validation ────────────────
+
+    static readonly Dictionary<string, HashSet<string>> KnownClaudeCodeModes = new()
+    {
+        ["permission-mode"] = new() { "auto", "plan", "dontAsk", "bypassPermissions", "default", "acceptEdits" },
+        ["effort"] = new() { "low", "medium", "high", "xhigh", "max" }
+    };
+
+    static readonly HashSet<string> KnownClaudeCodeIntParams = new()
+    {
+        "max-turns"
+    };
+
+    static readonly HashSet<string> KnownClaudeCodeFloatParams = new()
+    {
+        "max-budget-usd"
+    };
+
+    public static List<string> ValidateClaudeCodeParameter(string key, string value)
+    {
+        var errors = new List<string>();
+
+        // Check if this is a known parameter with specific valid values
+        if (KnownClaudeCodeModes.TryGetValue(key, out var validValues))
+        {
+            if (!validValues.Contains(value))
+            {
+                errors.Add($"Error: invalid value \"{value}\" for tool parameter \"{key}\". Valid values: {string.Join(", ", validValues)}");
+                return errors;
+            }
+            return errors;
+        }
+
+        // Check if this is a known integer parameter
+        if (KnownClaudeCodeIntParams.Contains(key))
+        {
+            if (!int.TryParse(value, out _))
+            {
+                errors.Add($"Error: invalid value \"{value}\" for tool parameter \"{key}\" — expected an integer");
+                return errors;
+            }
+            return errors;
+        }
+
+        // Check if this is a known float parameter
+        if (KnownClaudeCodeFloatParams.Contains(key))
+        {
+            if (!float.TryParse(value, out _))
+            {
+                errors.Add($"Error: invalid value \"{value}\" for tool parameter \"{key}\" — expected a number");
+                return errors;
+            }
+            return errors;
+        }
+
+        // Unknown parameters pass through without validation
+        return errors;
+    }
+
     static string ParameterExpectedType(string key) => key switch
     {
         "alias" => "string",
@@ -877,4 +936,7 @@ public static class ProgramTestHelper
 {
     public static Dictionary<string, ToolConfig> ParseToolBlocks(string path) =>
         Program.ParseToolBlocks(path);
+
+    public static List<string> ValidateClaudeCodeParameter(string key, string value) =>
+        Program.ValidateClaudeCodeParameter(key, value);
 }
