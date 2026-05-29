@@ -455,6 +455,27 @@ static class Program
         "repeat_penalty", "n_gpu_layers", "batch_size", "wait"
     };
 
+    static string ParameterExpectedType(string key) => key switch
+    {
+        "alias" => "string",
+        "jinja" or "flash_attention" => "boolean",
+        "repeat_penalty" => "float",
+        "port" or "context" or "n_gpu_layers" or "batch_size" or "wait" => "integer",
+        _ => "value"
+    };
+
+    static bool ValidateParameterValue(string key, string value)
+    {
+        return key switch
+        {
+            "alias" => true, // any string is valid
+            "jinja" or "flash_attention" => bool.TryParse(value, out _),
+            "repeat_penalty" => float.TryParse(value, out _),
+            "port" or "context" or "n_gpu_layers" or "batch_size" or "wait" => int.TryParse(value, out _),
+            _ => true // unknown keys already rejected before this point
+        };
+    }
+
     static List<string> ValidateModelfile(string sourcePath, string name, string modelsDir)
     {
         var errors = new List<string>();
@@ -546,20 +567,11 @@ static class Program
                 return errors;
             }
 
-            // Try to apply the parameter — catches invalid values
-            var testCfg = new ModelConfig();
-            try
+            // Validate the value type matches what the parameter expects
+            if (!ValidateParameterValue(key, value))
             {
-                ApplyParameter(testCfg, key, value);
-            }
-            catch (FormatException)
-            {
-                errors.Add($"Error: invalid parameter \"{key}\": \"{value}\" is not a valid value for {key}");
-                return errors;
-            }
-            catch (OverflowException)
-            {
-                errors.Add($"Error: invalid parameter \"{key}\": \"{value}\" is out of range");
+                string expectedType = ParameterExpectedType(key);
+                errors.Add($"Error: invalid parameter \"{key}\": \"{value}\" is not a valid {expectedType}");
                 return errors;
             }
         }
