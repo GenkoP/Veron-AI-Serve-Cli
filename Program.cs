@@ -5,7 +5,7 @@ using System.Net.Http;
 
 namespace Veron;
 
-static class Program
+public static class Program
 {
     // ── Defaults ───────────────────────────────────────────────────────────
     const string DefaultModelsDir   = "/home/genkop/Workspace/llama-cpp/models";
@@ -593,14 +593,6 @@ static class Program
         public int?    NGpuLayers    { get; set; }
         public int?    BatchSize     { get; set; }
         public int     Wait          { get; set; } = 30;
-    }
-
-    // ── ToolConfig — per-tool CLI parameter configuration ──────────────
-
-    class ToolConfig
-    {
-        public string Name                           { get; set; } = "";
-        public Dictionary<string, string> Parameters { get; set; } = new();
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────
