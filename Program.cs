@@ -595,6 +595,14 @@ static class Program
         public int     Wait          { get; set; } = 30;
     }
 
+    // ── ToolConfig — per-tool CLI parameter configuration ──────────────
+
+    class ToolConfig
+    {
+        public string Name                           { get; set; } = "";
+        public Dictionary<string, string> Parameters { get; set; } = new();
+    }
+
     // ── Helpers ────────────────────────────────────────────────────────────
 
     static List<string> BuildLlamaCmd(ModelConfig cfg)
