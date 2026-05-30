@@ -36,6 +36,7 @@ veron v
 | `create <name> <path>` | — | Copy and validate a modelfile as a profile into `~/.veron/modelfiles/` |
 | `serve <name>` | — | Start llama-server with the given profile (runs in foreground) |
 | `claude <name>` | — | Start llama-server, set env vars, then launch `claude code`. Auto-stops when claude exits |
+| `run <name>` | — | Run llama-cli interactively with the given model profile |
 | `stop` | — | Stop a previously started llama-server |
 | `help` | `h` | Show help message |
 | `version` | `v` | Show version information |
@@ -214,6 +215,19 @@ qwopus-small  Qwopus3.6-27B-v2-MTP-Q4_K_M.gguf
 
 Total: 3 modelfile(s)
 ```
+
+## Interactive chat with run
+
+```bash
+veron run my-model
+veron run my-model --temperature 0.3
+veron run my-model --prompt "Explain quantum computing"
+```
+
+The `run` command uses `llama-cli` (not `llama-server`) for direct interactive chat.
+It starts with sensible defaults: full GPU offload (`-ngl -1`), flash attention, colored output, and Jinja template.
+
+One-shot mode with `--prompt` runs a single prompt and exits.
 
 ## Environment Variables (set by `claude`)
 
