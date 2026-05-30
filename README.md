@@ -20,6 +20,12 @@ veron serve minicpm --port 8080
 # Launch Claude Code with the server (auto-stops when done)
 veron claude qwopus
 
+# Interactive chat with llama-cli
+veron run qwopus
+
+# One-shot prompt
+veron run qwopus --prompt "Explain quantum computing"
+
 # Stop a previously started server
 veron stop
 
@@ -83,6 +89,23 @@ veron create my-model ~/my-modelfiles/qwopus.modelfile
 # Overwrite an existing profile
 veron create qwopus ~/updated-modelfile
 ```
+
+## Run Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `<name>` | Modelfile name (without extension) in `~/.veron/modelfiles/` | *(required)* |
+| `--n-gpu-layers <n>` | GPU layers to offload | `-1` (full) |
+| `--flash-attention` / `--no-flash-attention` | Flash attention | on |
+| `--jinja` / `--no-jinja` | Use Jinja template | on |
+| `--color` / `--no-color` | Colored output | on |
+| `--temperature <f>` | Temperature | 0.8 |
+| `--top-p <f>` | Top-p sampling | 0.9 |
+| `--repeat-penalty <f>` | Repeat penalty | 1.1 |
+| `--context <n>` | Context size | from modelfile |
+| `--prompt <text>` | One-shot prompt, exit after response | *(interactive)* |
+
+The `run` command uses `llama-cli` (not `llama-server`) for direct interactive chat with a model. The modelfile provides the model path; all other parameters are CLI flags with sensible defaults.
 
 ## Modelfiles
 
@@ -216,18 +239,20 @@ qwopus-small  Qwopus3.6-27B-v2-MTP-Q4_K_M.gguf
 Total: 3 modelfile(s)
 ```
 
-## Interactive chat with run
+## Run Command
+
+The `run` command uses `llama-cli` (not `llama-server`) for direct interactive chat with a model. It starts with sensible defaults: full GPU offload (`-ngl -1`), flash attention, colored output, and Jinja template.
 
 ```bash
-veron run my-model
-veron run my-model --temperature 0.3
-veron run my-model --prompt "Explain quantum computing"
+# Interactive chat
+veron run qwopus
+
+# With temperature override
+veron run qwopus --temperature 0.3
+
+# One-shot prompt — runs a single prompt and exits
+veron run qwopus --prompt "Explain quantum computing"
 ```
-
-The `run` command uses `llama-cli` (not `llama-server`) for direct interactive chat.
-It starts with sensible defaults: full GPU offload (`-ngl -1`), flash attention, colored output, and Jinja template.
-
-One-shot mode with `--prompt` runs a single prompt and exits.
 
 ## Environment Variables (set by `claude`)
 
@@ -260,6 +285,12 @@ veron claude qwopus
 
 # Launch Claude Code with smaller context profile
 veron claude qwopus-small --port 5571
+
+# Interactive chat with llama-cli
+veron run qwopus
+
+# One-shot prompt mode
+veron run qwopus --prompt "Explain quantum computing"
 
 # Serve with GPU offloading and no Jinja
 veron serve qwopus --n-gpu-layers 99 --no-jinja
