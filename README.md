@@ -276,11 +276,11 @@ veron serve qwopus --port 8080
 
 ```bash
 $ veron ls
-NAME          FROM
----------------------------
-     minicpm   MiniCPM5-1B-Q4_K_M.gguf
-      qwopus   Qwopus3.6-27B-v2-MTP-Q4_K_M.gguf
-qwopus-small  Qwopus3.6-27B-v2-MTP-Q4_K_M.gguf
+NAME          FROM                                  SIZE
+------------------------------------------------------------------------
+     minicpm   MiniCPM5-1B-Q4_K_M.gguf              0.9 GB
+      qwopus   Qwopus3.6-27B-v2-MTP-Q4_K_M.gguf    16.8 GB
+qwopus-small  Qwopus3.6-27B-v2-MTP-Q4_K_M.gguf    missing
 
 Total: 3 modelfile(s)
 ```

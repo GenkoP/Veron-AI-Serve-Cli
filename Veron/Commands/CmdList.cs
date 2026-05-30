@@ -22,12 +22,13 @@ static class CmdList
             return;
         }
 
-        // Parse each modelfile to show the FROM target
-        var entries = new List<(string name, string fromTarget)>();
+        // Parse each modelfile to show the FROM target and GGUF file size
+        var entries = new List<(string name, string fromTarget, string size)>();
         foreach (var f in files)
         {
             string name = Path.GetFileName(f);
             string fromTarget = "";
+            string size = "";
 
             try
             {
@@ -41,19 +42,38 @@ static class CmdList
                         break;
                     }
                 }
+
+                // Resolve the full path and stat the file
+                string fullPath = Path.IsPathRooted(fromTarget)
+                    ? fromTarget
+                    : Path.Combine(modelsDir, fromTarget);
+
+                try
+                {
+                    long bytes = new FileInfo(fullPath).Length;
+                    double gb = bytes / (1024.0 * 1024.0 * 1024.0);
+                    size = $"{gb:F1} GB";
+                }
+                catch { /* file missing or unreadable */ }
+
+                if (string.IsNullOrEmpty(size))
+                {
+                    size = "missing";
+                }
             }
             catch { /* skip files we can't read */ }
 
-            entries.Add((name, fromTarget));
+            entries.Add((name, fromTarget, size));
         }
 
         int nameW = entries.Max(e => e.name.Length);
         int fromW = entries.Max(e => e.fromTarget.Length);
-        string header = "NAME".PadLeft(nameW) + "  FROM";
+        int sizeW = entries.Max(e => e.size.Length);
+        string header = "NAME".PadLeft(nameW) + "  FROM".PadRight(fromW + 2) + "SIZE";
         Console.WriteLine(header);
         Console.WriteLine(new string('-', header.Length));
-        foreach (var (name, fromTarget) in entries)
-            Console.WriteLine(name.PadLeft(nameW) + "  " + fromTarget);
+        foreach (var (name, fromTarget, size) in entries)
+            Console.WriteLine(name.PadLeft(nameW) + "  " + fromTarget.PadRight(fromW + 2) + size);
 
         Console.WriteLine();
         Console.WriteLine("Total: " + entries.Count + " modelfile(s)");
