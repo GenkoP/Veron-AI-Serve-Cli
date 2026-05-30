@@ -318,10 +318,42 @@ veron h
 veron v
 ```
 
+## Requirements
+
+- **.NET 10 SDK** (tested with 10.0.108) — [install from dot.net](https://dotnet.microsoft.com/download/dotnet/10.0)
+- **llama.cpp** — at minimum the `llama-server` binary. Clone and build as described in the [llama.cpp repository](https://github.com/ggerganov/llama.cpp):
+
+```bash
+git clone https://github.com/ggerganov/llama.cpp
+cd llama.cpp && mkdir build && cd build
+cmake .. -DBUILD_SHARED_LIBS=OFF
+make -j$(nproc)
+```
+
+The path to `llama-server` is configured in `Veron/Process/LlamaServer.cs` — update it if your binary lives elsewhere.
+
 ## Build
 
 ```bash
 dotnet publish Veron/Veron.csproj -c Release -o bin/release
 ```
 
-Requires .NET 10 SDK and `llama-server` in the configured path.
+## Setup PATH
+
+To use `veron` from any directory without specifying the full path, add the release output to your `$PATH`. Add one of the following lines to your shell profile (e.g., `~/.bashrc`, `~/.zshrc`):
+
+```bash
+# Option 1: symlink into ~/.local/bin (recommended if ~/.local/bin is in PATH)
+ln -sf /home/genkop/Workspace/llama-cpp/Veron-AI-Serve-Cli/bin/release/Veron ~/.local/bin/veron
+
+# Option 2: add bin/release to PATH directly
+export PATH="$PATH:/home/genkop/Workspace/llama-cpp/Veron-AI-Serve-Cli/bin/release"
+```
+
+Then reload your shell or run `source ~/.bashrc`.
+
+## Run Tests
+
+```bash
+dotnet test tests/Veron.Tests.csproj -v normal
+```
