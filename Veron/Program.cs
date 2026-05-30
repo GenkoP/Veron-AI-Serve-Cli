@@ -33,7 +33,9 @@ public static class Program
             case "run":     CmdRun.Run(opts, modelsDir); break;
             case "stop":    CmdStop.Run(opts); break;
             case "ps":        CmdPs.Run(); break;
-            default:        PrintUsage(); Environment.Exit(1); break;
+            case "remove":
+            case "rm":        CmdRemove.Run(opts, modelsDir); break;
+            default:         PrintUsage(); Environment.Exit(1); break;
         }
     }
 
@@ -55,6 +57,7 @@ COMMANDS
   run <name>          Run llama-cli interactively with the given model profile
   stop                Stop a previously started llama-server
   ps                    List currently running servers
+  remove, rm <name>   Remove a model profile (stops server if running)
   h, help             Show this help message
   v, version          Show version information
 
