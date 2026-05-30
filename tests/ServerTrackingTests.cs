@@ -7,6 +7,13 @@ namespace Veron.Tests;
 public class ServerTrackingTests
 {
     [Fact]
+    public void Paths_ServersDir_Is_Under_VeronDir()
+    {
+        var expected = System.IO.Path.Join(Paths.VeronDir, "servers");
+        Assert.Equal(expected, Paths.ServersDir);
+    }
+
+    [Fact]
     public void ServerState_Has_Required_Fields()
     {
         var state = new ServerState
