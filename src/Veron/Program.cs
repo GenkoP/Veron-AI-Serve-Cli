@@ -5,12 +5,7 @@ namespace Veron;
 
 public static class Program
 {
-    // ── Defaults ───────────────────────────────────────────────────────────
     const string DefaultModelsDir   = "/home/genkop/Workspace/llama-cpp/models";
-
-    static readonly string VeronDir    = Path.Join(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".veron");
-    static readonly string ModelfilesDir = Path.Join(VeronDir, "modelfiles");
 
     // ── Entry point ────────────────────────────────────────────────────────
     static void Main(string[] rawArgs)

@@ -19,7 +19,7 @@ static class ModelfileParser
         mfPath = FindModelfile(raw);
 
         if (mfPath is null)
-            throw new FileNotFoundException("No modelfile found for '" + raw + "' in " + ModelfilesDir);
+            throw new FileNotFoundException("No modelfile found for '" + raw + "' in " + Paths.ModelfilesDir);
 
         Console.WriteLine("Using modelfile: " + mfPath);
 
@@ -44,23 +44,23 @@ static class ModelfileParser
     }
 
     /// <summary>
-    /// Finds a modelfile in ModelfilesDir matching the given name.
+    /// Finds a modelfile in Paths.ModelfilesDir matching the given name.
     /// Tries exact filename first, then strips extension and rechecks,
     /// then tries appending .modelfile.
     /// </summary>
     public static string? FindModelfile(string name)
     {
-        if (!Directory.Exists(ModelfilesDir)) return null;
+        if (!Directory.Exists(Paths.ModelfilesDir)) return null;
 
         // Exact match (e.g. user types "MiniCPM5-1B-Q4_K_M.modelfile")
-        string exact = Path.Join(ModelfilesDir, name);
+        string exact = Path.Join(Paths.ModelfilesDir, name);
         if (File.Exists(exact)) return exact;
 
         // Name without extension (user types "MiniCPM5-1B-Q4_K_M", file could be "MiniCPM5-1B-Q4_K_M" or "MiniCPM5-1B-Q4_K_M.modelfile" or anything)
         string stem = Path.GetFileNameWithoutExtension(name);
 
         // List all files in modelfiles dir and match by stem
-        var files = Directory.GetFiles(ModelfilesDir, "*", SearchOption.TopDirectoryOnly);
+        var files = Directory.GetFiles(Paths.ModelfilesDir, "*", SearchOption.TopDirectoryOnly);
         foreach (var f in files)
         {
             string fname = Path.GetFileName(f);

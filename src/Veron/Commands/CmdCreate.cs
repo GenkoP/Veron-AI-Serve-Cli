@@ -34,10 +34,10 @@ static class CmdCreate
         }
 
         // Ensure destination directory exists
-        Directory.CreateDirectory(ModelfilesDir);
+        Directory.CreateDirectory(Paths.ModelfilesDir);
 
         // Copy (overwrite if exists — allows updates)
-        string destPath = Path.Join(ModelfilesDir, name);
+        string destPath = Path.Join(Paths.ModelfilesDir, name);
         File.Copy(sourcePath, destPath, overwrite: true);
 
         Console.WriteLine($"Using modelfile: {sourcePath}");

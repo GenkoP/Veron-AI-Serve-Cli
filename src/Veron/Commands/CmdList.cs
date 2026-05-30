@@ -8,17 +8,17 @@ static class CmdList
 {
     public static void Run(string modelsDir)
     {
-        if (!Directory.Exists(ModelfilesDir))
+        if (!Directory.Exists(Paths.ModelfilesDir))
         {
-            Console.WriteLine("No modelfiles found in " + ModelfilesDir);
+            Console.WriteLine("No modelfiles found in " + Paths.ModelfilesDir);
             return;
         }
 
-        var files = Directory.GetFiles(ModelfilesDir, "*", SearchOption.TopDirectoryOnly)
+        var files = Directory.GetFiles(Paths.ModelfilesDir, "*", SearchOption.TopDirectoryOnly)
                             .OrderBy(p => p).ToArray();
         if (files.Length == 0)
         {
-            Console.WriteLine("No modelfiles found in " + ModelfilesDir);
+            Console.WriteLine("No modelfiles found in " + Paths.ModelfilesDir);
             return;
         }
 
