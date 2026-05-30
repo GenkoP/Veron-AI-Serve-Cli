@@ -6,15 +6,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    
-    <DefaultFramework>net10.0</DefaultFramework>
-
-    <TargetFrameworks Condition="'$(AllFrameworks)' == 'true'">net8.0;net10.0</TargetFrameworks>
-    <TargetFramework Condition="'$(AllFrameworks)' != 'true'">$(DefaultFramework)</TargetFramework>
-    
     <RootNamespace>Veron</RootNamespace>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
     <SingleFile>true</SingleFile>
     <SelfContained>false</SelfContained>
     <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
