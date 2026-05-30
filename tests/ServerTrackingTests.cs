@@ -32,4 +32,52 @@ public class ServerTrackingTests
         Assert.Equal(128000, state.Context);
         Assert.Equal(12345, state.Pid);
     }
+
+    [Fact]
+    public void StateManager_StateFile_Path_Is_Correct()
+    {
+        var expected = System.IO.Path.Join(Paths.ServersDir, "qwopus.json");
+        Assert.Equal(expected, StateManager.StateFilePath("qwopus"));
+    }
+
+    [Fact]
+    public void StateManager_WriteAndRead_ServerState()
+    {
+        string testDir = System.IO.Path.GetTempPath();
+        var state = new ServerState
+        {
+            Model = "test-model",
+            From = "Test.gguf",
+            Port = 9999,
+            Context = 4096,
+            Pid = -1, // not a real PID
+            StartedAt = DateTime.UtcNow
+        };
+
+        string tmpPath = System.IO.Path.Join(testDir, $"veron-test-{Guid.NewGuid()}.json");
+        var json = System.Text.Json.JsonSerializer.Serialize(state);
+        System.IO.File.WriteAllText(tmpPath, json);
+
+        var read = System.Text.Json.JsonSerializer.Deserialize<ServerState>(json);
+
+        Assert.Equal("test-model", read!.Model);
+        Assert.Equal(9999, read.Port);
+        Assert.Equal(4096, read.Context);
+
+        System.IO.File.Delete(tmpPath);
+    }
+
+    [Fact]
+    public void StateManager_ServerRunning_Returns_False_When_No_State_File()
+    {
+        bool result = StateManager.IsServerRunning("nonexistent-model");
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void StateManager_GetState_Returns_Null_When_No_State_File()
+    {
+        var result = StateManager.GetState("nonexistent-model");
+        Assert.Null(result);
+    }
 }
