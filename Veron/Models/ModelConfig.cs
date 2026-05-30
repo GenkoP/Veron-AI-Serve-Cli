@@ -12,4 +12,10 @@ class ModelConfig
     public int?    NGpuLayers    { get; set; }
     public int?    BatchSize     { get; set; }
     public int     Wait          { get; set; } = 30;
+
+    // New fields for 'run' command
+    public bool?   Color         { get; set; } = true;
+    public float?  Temperature   { get; set; }
+    public float?  TopP          { get; set; }
+    public string? Prompt        { get; set; }
 }
