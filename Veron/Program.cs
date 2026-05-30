@@ -20,7 +20,7 @@ public static class Program
         string modelsDir = opts.GetValueOrDefault("models-dir") ?? CliParser.ExpandEnv(DefaultModelsDir);
 
         // Validate --force/-f is only used with remove command
-        if (command != "remove" && command != "rm")
+        if (command != "remove" && command != "rm" && command != "claude")
         {
             bool hasForce = false;
             foreach (var arg in rawArgs.Skip(1))
