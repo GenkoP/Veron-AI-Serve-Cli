@@ -1,34 +1,45 @@
-using System.Diagnostics;
+using System.Collections.Generic;
 
 namespace Veron;
 
 static class CmdStop
 {
-    public static void Run()
+    public static void Run(Dictionary<string, string> opts)
     {
-        if (!PidManager.ReadPid(out int pid))
+        string? modelName = opts.GetValueOrDefault("model");
+
+        if (modelName is not null)
         {
-            Console.WriteLine("No saved PID — llama-server may not have been started by veron.");
+            RunForModel(modelName);
+        }
+        else
+        {
+            RunAll();
+        }
+    }
+
+    static void RunForModel(string modelName)
+    {
+        var state = StateManager.GetState(modelName);
+        if (state is null || !PidManager.IsProcessAlive(state.Pid))
+        {
+            Console.WriteLine("No server running for " + modelName + ".");
             return;
         }
 
-        if (!PidManager.IsProcessAlive(pid))
-        {
-            Console.WriteLine("Process " + pid + " is no longer running. Cleaning up.");
-            PidManager.DeletePid();
-            return;
-        }
+        StateManager.StopServer(modelName);
+    }
 
-        try
+    static void RunAll()
+    {
+        int count = StateManager.StopAllServers();
+        if (count == 0)
         {
-            using var proc = Process.GetProcessById(pid);
-            proc.Kill(true);
-            Console.WriteLine("Stopped llama-server (PID " + pid + ").");
+            Console.WriteLine("No servers currently running.");
         }
-        catch (ArgumentException)
+        else
         {
-            Console.WriteLine("Process " + pid + " already gone.");
+            Console.WriteLine(count + " server(s) stopped.");
         }
-        finally { PidManager.DeletePid(); }
     }
 }

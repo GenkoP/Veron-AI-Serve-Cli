@@ -31,7 +31,7 @@ public static class Program
             case "serve":   CmdServe.Run(opts, modelsDir); break;
             case "claude":  CmdClaude.Run(opts, modelsDir); break;
             case "run":     CmdRun.Run(opts, modelsDir); break;
-            case "stop":    CmdStop.Run(); break;
+            case "stop":    CmdStop.Run(opts); break;
             default:        PrintUsage(); Environment.Exit(1); break;
         }
     }
