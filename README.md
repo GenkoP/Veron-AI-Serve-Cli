@@ -258,7 +258,7 @@ veron v
 ## Build
 
 ```bash
-dotnet publish -c Release -o bin/release
+dotnet publish src/Veron.csproj -c Release -o bin/release
 ```
 
 Requires .NET 10 SDK and `llama-server` in the configured path.
