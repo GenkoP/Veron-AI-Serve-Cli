@@ -40,6 +40,12 @@ static class ModelfileParser
         if (opts.TryGetValue("batch-size", out v))         cfg.BatchSize     = int.Parse(v);
         if (opts.TryGetValue("wait", out v))               cfg.Wait          = int.Parse(v);
 
+        // Run command specific flags
+        if (CliParser.OptsBool(opts, "no-color"))                      cfg.Color = false;
+        if (opts.TryGetValue("temperature", out var t))               cfg.Temperature = float.Parse(t);
+        if (opts.TryGetValue("top-p", out var p))                     cfg.TopP = float.Parse(p);
+        if (opts.TryGetValue("prompt", out var pr))                   cfg.Prompt = pr;
+
         return cfg;
     }
 

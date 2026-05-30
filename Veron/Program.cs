@@ -30,6 +30,7 @@ public static class Program
             case "version": PrintVersion(); break;
             case "serve":   CmdServe.Run(opts, modelsDir); break;
             case "claude":  CmdClaude.Run(opts, modelsDir); break;
+            case "run":     CmdRun.Run(opts, modelsDir); break;
             case "stop":    CmdStop.Run(); break;
             default:        PrintUsage(); Environment.Exit(1); break;
         }
@@ -50,6 +51,7 @@ COMMANDS
   create <name> <path> Create a profile from a modelfile (validates first)
   serve <name>        Start llama-server with the given model profile (foreground)
   claude <name>       Start llama-server then launch claude code (auto-stop after)
+  run <name>          Run llama-cli interactively with the given model profile
   stop                Stop a previously started llama-server
   h, help             Show this help message
   v, version          Show version information
@@ -70,6 +72,21 @@ SERVE / CLAUDE OPTIONS
   --n-gpu-layers <n>   GPU layers to offload
   --batch-size <n>     Batch size
   --wait <n>           Seconds to wait for server readiness  (default: 30)
+
+RUN OPTIONS
+  <name>               Modelfile name (without extension) in ~/.veron/modelfiles/
+  --n-gpu-layers <n>   GPU layers to offload (default: -1 = full)
+  --flash-attention    Enable flash attention (default: on)
+  --no-flash-attention Disable flash attention
+  --jinja              Use Jinja template (default: on)
+  --no-jinja           Disable Jinja template
+  --color              Enable colored output (default: on)
+  --no-color           Disable colored output
+  --temperature <f>    Temperature (default: 0.8)
+  --top-p <f>          Top-p sampling (default: 0.9)
+  --repeat-penalty <f> Repeat penalty (default: 1.1)
+  --context <n>        Context size
+  --prompt <text>      One-shot prompt, exit after response
 
 MODELFILeS
   Place modelfile files in ~/.veron/modelfiles/ — no extension required.
@@ -116,6 +133,8 @@ EXAMPLES
   veron ls
   veron serve my-model-small
   veron claude my-model-large --port 5571
+  veron run my-model
+  veron run my-model --prompt ""Explain quantum computing""
   veron serve Qwopus3.6-27b-MTP
 
 ENVIRONMENT (set automatically by 'claude')
