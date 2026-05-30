@@ -38,6 +38,44 @@ public class RunCommandTests
         Assert.True(cmd.Contains("--flash-attn"));
         Assert.True(cmd.Contains("--jinja"));
         Assert.True(cmd.Contains("--color"));
+        Assert.True(cmd.Contains("--temperature"));
+        Assert.True(cmd.Contains("--top-p"));
+    }
+
+    [Fact]
+    public void BuildLlamaCmd_Temperature_Defaults_To_08()
+    {
+        var cfg = new ModelConfig
+        {
+            ModelPath = "/home/genkop/Workspace/llama-cpp/models/test.gguf",
+            Alias     = "test-model",
+            Context   = 2048,
+            RepeatPenalty = 1.1f,
+        };
+
+        var cmd = ProgramTestHelper.BuildLlamaCmd(cfg);
+
+        int tempIdx = cmd.IndexOf("--temperature");
+        Assert.True(tempIdx >= 0, "--temperature should be present");
+        Assert.Equal("0.80", cmd[tempIdx + 1]);
+    }
+
+    [Fact]
+    public void BuildLlamaCmd_TopP_Defaults_To_09()
+    {
+        var cfg = new ModelConfig
+        {
+            ModelPath = "/home/genkop/Workspace/llama-cpp/models/test.gguf",
+            Alias     = "test-model",
+            Context   = 2048,
+            RepeatPenalty = 1.1f,
+        };
+
+        var cmd = ProgramTestHelper.BuildLlamaCmd(cfg);
+
+        int topPIdx = cmd.IndexOf("--top-p");
+        Assert.True(topPIdx >= 0, "--top-p should be present");
+        Assert.Equal("0.90", cmd[topPIdx + 1]);
     }
 
     [Fact]

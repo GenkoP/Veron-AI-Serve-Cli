@@ -7,13 +7,13 @@ namespace Veron;
 
 static class LlamaCli
 {
-    const string DefaultBinary = "/home/genkop/Workspace/llama-cpp/llama.cpp/build/bin/llama-cli";
+    const string DefaultLlamaCli = "/home/genkop/Workspace/llama-cpp/llama.cpp/build/bin/llama-cli";
 
     public static List<string> BuildLlamaCmd(ModelConfig cfg)
     {
         var cmd = new List<string>
         {
-            DefaultBinary,
+            DefaultLlamaCli,
             "-m", cfg.ModelPath,
             "--alias", cfg.Alias,
             "-ngl", (cfg.NGpuLayers ?? -1).ToString(),
@@ -25,11 +25,9 @@ static class LlamaCli
         if (cfg.Jinja) cmd.Add("--jinja");
         if (cfg.Color ?? true) cmd.Add("--color");
 
-        if (cfg.Temperature.HasValue)
-            cmd.AddRange(new[] { "--temperature", cfg.Temperature.Value.ToString("0.00") });
+        cmd.AddRange(new[] { "--temperature", (cfg.Temperature ?? 0.8f).ToString("0.00") });
 
-        if (cfg.TopP.HasValue)
-            cmd.AddRange(new[] { "--top-p", cfg.TopP.Value.ToString("0.00") });
+        cmd.AddRange(new[] { "--top-p", (cfg.TopP ?? 0.9f).ToString("0.00") });
 
         if (cfg.Prompt is not null)
         {
