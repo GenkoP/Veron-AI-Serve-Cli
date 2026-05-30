@@ -28,10 +28,10 @@ To use `veron` from any directory without specifying the full path, add the rele
 
 ```bash
 # Option 1: symlink into ~/.local/bin (recommended if ~/.local/bin is in PATH)
-ln -sf /home/genkop/Workspace/llama-cpp/Veron-AI-Serve-Cli/bin/release/Veron ~/.local/bin/veron
+ln -sf <project-dir>/bin/release/Veron ~/.local/bin/veron
 
 # Option 2: add bin/release to PATH directly
-export PATH="$PATH:/home/genkop/Workspace/llama-cpp/Veron-AI-Serve-Cli/bin/release"
+export PATH="$PATH:<project-dir>/bin/release"
 ```
 
 Then reload your shell or run `source ~/.bashrc`.
@@ -90,7 +90,7 @@ veron v
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--models-dir <dir>` | Directory containing GGUF files | `/home/genkop/Workspace/llama-cpp/models` |
+| `--models-dir <dir>` | Directory containing GGUF files | `<your-models-path>` |
 
 ## Serve / Claude Options
 
