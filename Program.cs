@@ -706,37 +706,47 @@ public static class Program
             return errors;
         }
 
-        // Validate PARAMETER directives
+        // Validate PARAMETER directives (skip those inside TOOL blocks — they're validated separately)
+        bool insideToolBlock = false;
         foreach (var rawLine in lines)
         {
             string line = rawLine.Trim();
-            if (!line.StartsWith("PARAMETER", StringComparison.OrdinalIgnoreCase)) continue;
 
-            string rest = line[9..].Trim();
-            int spaceIdx = rest.IndexOf(' ');
-            if (spaceIdx < 0) continue;
+            // Track whether we're inside a TOOL block
+            if (line.StartsWith("TOOL", StringComparison.OrdinalIgnoreCase))
+            { insideToolBlock = true; continue; }
+            if (line.StartsWith("END_TOOL", StringComparison.OrdinalIgnoreCase))
+            { insideToolBlock = false; continue; }
 
-            string key = rest[..spaceIdx].Trim().ToLowerInvariant();
-            string value = rest[(spaceIdx + 1)..].Trim();
-
-            // Strip quotes from value
-            if (value.Length >= 2 && ((value[0] == '"' && value[^1] == '"') ||
-                                      (value[0] == '\'' && value[^1] == '\'')))
-                value = value[1..^1];
-
-            // Check for unknown keys
-            if (!KnownParams.Contains(key))
+            // Skip parameters that are inside TOOL blocks — handled by ValidateToolBlocks
+            if (!insideToolBlock && line.StartsWith("PARAMETER", StringComparison.OrdinalIgnoreCase))
             {
-                errors.Add($"Error: unknown parameter key: \"{key}\" (did you mean one of: alias, port, context, jinja, flash_attention, repeat_penalty, n_gpu_layers, batch_size, wait?)");
-                return errors;
-            }
+                string rest = line[9..].Trim();
+                int spaceIdx = rest.IndexOf(' ');
+                if (spaceIdx < 0) continue;
 
-            // Validate the value type matches what the parameter expects
-            if (!ValidateParameterValue(key, value))
-            {
-                string expectedType = ParameterExpectedType(key);
-                errors.Add($"Error: invalid parameter \"{key}\": \"{value}\" is not a valid {expectedType}");
-                return errors;
+                string key = rest[..spaceIdx].Trim().ToLowerInvariant();
+                string value = rest[(spaceIdx + 1)..].Trim();
+
+                // Strip quotes from value
+                if (value.Length >= 2 && ((value[0] == '"' && value[^1] == '"') ||
+                                          (value[0] == '\'' && value[^1] == '\'')))
+                    value = value[1..^1];
+
+                // Check for unknown keys
+                if (!KnownParams.Contains(key))
+                {
+                    errors.Add($"Error: unknown parameter key: \"{key}\" (did you mean one of: alias, port, context, jinja, flash_attention, repeat_penalty, n_gpu_layers, batch_size, wait?)");
+                    return errors;
+                }
+
+                // Validate the value type matches what the parameter expects
+                if (!ValidateParameterValue(key, value))
+                {
+                    string expectedType = ParameterExpectedType(key);
+                    errors.Add($"Error: invalid parameter \"{key}\": \"{value}\" is not a valid {expectedType}");
+                    return errors;
+                }
             }
         }
 
