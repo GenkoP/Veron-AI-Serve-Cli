@@ -15,24 +15,82 @@ static class CmdClaude
     {
         var cfg = ModelfileParser.LoadConfig(opts, modelsDir, out string? modelfilePath);
 
-        var cmd = LlamaServer.BuildLlamaCmd(cfg);
+        // The model profile name the user typed
+        string modelName = opts.GetValueOrDefault("model") ?? throw new ArgumentNullException("model argument required");
 
-        Console.WriteLine("Starting llama-server for " + cfg.Alias + " on port " + cfg.Port + " …");
+        bool foreground = CliParser.OptsBool(opts, "foreground") || CliParser.OptsBool(opts, "f");
 
-        var psi = LlamaServer.ServerPsi(cmd);
-        var serverProc = Process.Start(psi)
-                        ?? throw new InvalidOperationException("Failed to start llama-server");
+        // Check if server is already running for this model — reuse if so
+        bool serverAlreadyRunning = StateManager.IsServerRunning(modelName);
 
-        PidManager.WritePid(serverProc.Id);
-        string baseUrl = "http://localhost:" + cfg.Port;
-
-        if (!LlamaServer.WaitForServer(baseUrl, cfg.Wait))
+        if (!serverAlreadyRunning)
         {
-            Console.Error.WriteLine("Error: server did not respond within " + cfg.Wait + "s");
-            Environment.Exit(1);
+            var cmd = LlamaServer.BuildLlamaCmd(cfg);
+
+            Console.WriteLine("Starting llama-server for " + cfg.Alias + " on port " + cfg.Port + " ...");
+
+            ProcessStartInfo psi;
+
+            if (foreground)
+            {
+                // Start in a new terminal window
+                string? terminal = TerminalDetector.DetectTerminal();
+                if (terminal is not null && TerminalDetector.BuildTerminalCommand(terminal, string.Join(" ", cmd.Select(CliParser.EscapeArg))) is string termArgs)
+                {
+                    psi = new ProcessStartInfo(terminal, termArgs)
+                    {
+                        UseShellExecute = true,
+                    };
+                }
+                else
+                {
+                    Console.WriteLine("Terminal detection unavailable — starting server in background.");
+                    foreground = false;
+                    psi = LlamaServer.ServerPsi(cmd);
+                }
+            }
+            else
+            {
+                psi = LlamaServer.ServerPsi(cmd);
+            }
+
+            var serverProc = Process.Start(psi)
+                            ?? throw new InvalidOperationException("Failed to start llama-server");
+
+            string baseUrl = "http://localhost:" + cfg.Port;
+
+            if (!LlamaServer.WaitForServer(baseUrl, cfg.Wait))
+            {
+                Console.Error.WriteLine("Error: server did not respond within " + cfg.Wait + "s");
+                Environment.Exit(1);
+            }
+
+            Console.WriteLine("Server is ready at " + baseUrl);
+
+            // Write server state file
+            string fromName = Path.GetFileNameWithoutExtension(cfg.ModelPath);
+            var serverState = new ServerState
+            {
+                Model = modelName,
+                From = fromName,
+                Port = cfg.Port,
+                Context = cfg.Context,
+                Pid = serverProc.Id,
+                StartedAt = DateTime.UtcNow
+            };
+            StateManager.WriteState(serverState);
+
+            // Also write the legacy PID file for backward compatibility
+            PidManager.WritePid(serverProc.Id);
+        }
+        else
+        {
+            var existing = StateManager.GetState(modelName);
+            Console.WriteLine("Server for " + modelName + " is already running (PID " +
+                existing!.Pid + ", port " + existing.Port + ") — reusing.");
         }
 
-        Console.WriteLine("Server is ready at " + baseUrl);
+        string baseUrl2 = "http://localhost:" + cfg.Port;
 
         // Parse TOOL blocks from modelfile
         string toolName = "claude-code";
@@ -55,7 +113,6 @@ static class CmdClaude
         {
             foreach (var (key, value) in toolCfg.Parameters)
             {
-                // Validate known parameters — unknown pass through silently
                 var valErrors = ClaudeCodeValidator.ValidateClaudeCodeParameter(key, value);
                 if (valErrors.Count > 0)
                 {
@@ -76,15 +133,14 @@ static class CmdClaude
         {
             UseShellExecute = false,
         };
-        claudePsi.EnvironmentVariables["ANTHROPIC_BASE_URL"]           = baseUrl;
+        claudePsi.EnvironmentVariables["ANTHROPIC_BASE_URL"]           = baseUrl2;
         claudePsi.EnvironmentVariables["CLAUDE_CODE_ATTRIBUTION_HEADER"] = "0";
 
         Console.WriteLine();
-        Console.WriteLine("Launching claude code …");
-        Console.WriteLine("  ANTHROPIC_BASE_URL             = " + baseUrl);
+        Console.WriteLine("Launching claude code ...");
+        Console.WriteLine("  ANTHROPIC_BASE_URL             = " + baseUrl2);
         Console.WriteLine("  CLAUDE_CODE_ATTRIBUTION_HEADER = 0");
 
-        // Print the tool args that were applied
         if (claudeArgs.Count > 1)
             Console.WriteLine("  TOOL claude-code args        = " + string.Join(" ", claudeArgs.Skip(1)));
 
@@ -102,11 +158,6 @@ static class CmdClaude
             Environment.Exit(1);
         }
 
-        // Tear down the server
-        Console.WriteLine("\nclaude code exited. Stopping llama-server …");
-        if (!serverProc.HasExited)
-            serverProc.Kill(true);
-        PidManager.DeletePid();
-        Console.WriteLine("Done.");
+        // Do NOT stop the server when claude exits — leave it running
     }
 }
