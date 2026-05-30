@@ -29,6 +29,9 @@ veron run qwopus --prompt "Explain quantum computing"
 # Stop a previously started server
 veron stop
 
+# Remove a model profile (stops server if running)
+veron rm qwopus -f
+
 # Show help / version
 veron h
 veron v
@@ -43,7 +46,9 @@ veron v
 | `serve <name>` | — | Start llama-server with the given profile (runs in foreground) |
 | `claude <name>` | — | Start llama-server, set env vars, then launch `claude code`. Auto-stops when claude exits |
 | `run <name>` | — | Run llama-cli interactively with the given model profile |
-| `stop` | — | Stop a previously started llama-server |
+| `stop` | — | Stop a specific server by name, or all if no name given |
+| `ps` | — | List currently running servers |
+| `remove <name>` | `rm` | Remove a model profile (stops server if running) |
 | `help` | `h` | Show help message |
 | `version` | `v` | Show version information |
 
@@ -89,6 +94,13 @@ veron create my-model ~/my-modelfiles/qwopus.modelfile
 # Overwrite an existing profile
 veron create qwopus ~/updated-modelfile
 ```
+
+## Remove Options
+
+| Option | Description |
+|--------|-------------|
+| `<name>` | Profile name to remove |
+| `-f` / `--force` | Skip confirmation prompt |
 
 ## Run Options
 
@@ -291,6 +303,12 @@ veron run qwopus
 
 # One-shot prompt mode
 veron run qwopus --prompt "Explain quantum computing"
+
+# Remove a model profile (with confirmation)
+veron rm qwopus
+
+# Remove without confirmation
+veron rm qwopus -f
 
 # Serve with GPU offloading and no Jinja
 veron serve qwopus --n-gpu-layers 99 --no-jinja
