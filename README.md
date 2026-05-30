@@ -42,6 +42,9 @@ Then reload your shell or run `source ~/.bashrc`.
 # List all available model profiles
 veron ls
 
+# Show raw modelfile content
+veron cat my-model
+
 # Create a profile from a modelfile (with validation)
 veron create my-model /path/to/modelfile
 
@@ -75,6 +78,7 @@ veron v
 
 | Command | Short | Description |
 |---------|-------|-------------|
+| `cat <name>` | — | Show raw modelfile content |
 | `list` | `ls` | List all available modelfile profiles |
 | `create <name> <path>` | — | Copy and validate a modelfile as a profile into `~/.veron/modelfiles/` |
 | `serve <name>` | — | Start llama-server with the given profile (runs in foreground) |
