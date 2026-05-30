@@ -19,6 +19,22 @@ public static class Program
         // Extract global options before dispatch
         string modelsDir = opts.GetValueOrDefault("models-dir") ?? CliParser.ExpandEnv(DefaultModelsDir);
 
+        // Validate --force/-f is only used with remove command
+        if (command != "remove" && command != "rm")
+        {
+            bool hasForce = false;
+            foreach (var arg in rawArgs.Skip(1))
+            {
+                if (arg == "-f" || arg == "--force") { hasForce = true; break; }
+            }
+
+            if (hasForce)
+            {
+                Console.Error.WriteLine("Error: flag --force/-f is only valid with the remove command");
+                Environment.Exit(1);
+            }
+        }
+
         switch (command)
         {
             case "ls":
@@ -53,11 +69,12 @@ COMMANDS
   ls, list            List all available modelfiles
   create <name> <path> Create a profile from a modelfile (validates first)
   serve <name>        Start llama-server with the given model profile (foreground)
-  claude <name>       Start llama-server then launch claude code (auto-stop after)
+  claude <name>       Start llama-server then launch claude code
   run <name>          Run llama-cli interactively with the given model profile
-  stop                Stop a previously started llama-server
-  ps                    List currently running servers
+  ps                  List currently running servers
+  stop [name]         Stop a specific server, or all if no name given
   remove, rm <name>   Remove a model profile (stops server if running)
+    -f, --force       Skip confirmation prompt
   h, help             Show this help message
   v, version          Show version information
 
@@ -77,6 +94,7 @@ SERVE / CLAUDE OPTIONS
   --n-gpu-layers <n>   GPU layers to offload
   --batch-size <n>     Batch size
   --wait <n>           Seconds to wait for server readiness  (default: 30)
+  --foreground, -f    Start llama-server in a new terminal window (claude only)
 
 RUN OPTIONS
   <name>               Modelfile name (without extension) in ~/.veron/modelfiles/
