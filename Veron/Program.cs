@@ -88,7 +88,7 @@ RUN OPTIONS
   --context <n>        Context size
   --prompt <text>      One-shot prompt, exit after response
 
-MODELFILeS
+MODELS
   Place modelfile files in ~/.veron/modelfiles/ — no extension required.
 
   Modelfile format (inspired by Ollama):

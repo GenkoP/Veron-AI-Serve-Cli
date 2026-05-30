@@ -13,7 +13,7 @@ static class ModelfileParser
     public static ModelConfig LoadConfig(Dictionary<string, string> opts, string modelsDir, out string? mfPath)
     {
         string raw = opts.GetValueOrDefault("model")
-                ?? throw new ArgumentNullException("model argument is required for serve/claude");
+                ?? throw new ArgumentNullException("model argument is required for serve/claude/run");
 
         // Step 1: find the modelfile
         mfPath = FindModelfile(raw);
