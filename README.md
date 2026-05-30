@@ -4,7 +4,7 @@ Manage llama.cpp models and launch Claude Code against them, similar to how Olla
 
 ## Requirements
 
-- **.NET 10 SDK** (tested with 10.0.108) — [install from dot.net](https://dotnet.microsoft.com/download/dotnet/10.0)
+- **.NET 8+ SDK** — [install from dot.net](https://dotnet.microsoft.com/download/dotnet/8.0)
 - **llama.cpp** — at minimum the `llama-server` binary. Clone and build as described in the [llama.cpp repository](https://github.com/ggerganov/llama.cpp):
 
 ```bash
