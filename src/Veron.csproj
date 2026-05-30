@@ -11,8 +11,4 @@
     <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
   </PropertyGroup>
 
-  <ItemGroup>
-    <Compile Remove="tests\**\*.cs" />
-  </ItemGroup>
-
-</Project>
+ </Project>
