@@ -32,14 +32,14 @@ public class RunCommandTests
         var cmd = ProgramTestHelper.BuildLlamaCmd(cfg);
 
         Assert.Equal("/home/genkop/Workspace/llama-cpp/llama.cpp/build/bin/llama-cli", cmd[0]);
-        Assert.True(cmd.Contains("-m"));
-        Assert.True(cmd.Contains("--alias"));
-        Assert.True(cmd.Contains("-ngl"));
-        Assert.True(cmd.Contains("--flash-attn"));
-        Assert.True(cmd.Contains("--jinja"));
-        Assert.True(cmd.Contains("--color"));
-        Assert.True(cmd.Contains("--temperature"));
-        Assert.True(cmd.Contains("--top-p"));
+        Assert.Contains("-m", cmd);
+        Assert.Contains("--alias", cmd);
+        Assert.Contains("-ngl", cmd);
+        Assert.Contains("--flash-attn", cmd);
+        Assert.Contains("--jinja", cmd);
+        Assert.Contains("--color", cmd);
+        Assert.Contains("--temperature", cmd);
+        Assert.Contains("--top-p", cmd);
     }
 
     [Fact]
@@ -92,9 +92,9 @@ public class RunCommandTests
 
         var cmd = ProgramTestHelper.BuildLlamaCmd(cfg);
 
-        Assert.True(cmd.Contains("--prompt"));
-        Assert.True(cmd.Contains("--single-turn"));
-        Assert.True(cmd.Contains("Hello world"));
+        Assert.Contains("--prompt", cmd);
+        Assert.Contains("--single-turn", cmd);
+        Assert.Contains("Hello world", cmd);
     }
 
     [Fact]
@@ -110,8 +110,8 @@ public class RunCommandTests
 
         var cmd = ProgramTestHelper.BuildLlamaCmd(cfg);
 
-        Assert.False(cmd.Contains("--single-turn"));
-        Assert.False(cmd.Contains("--prompt"));
+        Assert.DoesNotContain("--single-turn", cmd);
+        Assert.DoesNotContain("--prompt", cmd);
     }
 
     [Fact]
@@ -128,7 +128,7 @@ public class RunCommandTests
 
         var cmd = ProgramTestHelper.BuildLlamaCmd(cfg);
 
-        Assert.False(cmd.Contains("--color"));
+        Assert.DoesNotContain("--color", cmd);
     }
 
     [Fact]
@@ -145,8 +145,8 @@ public class RunCommandTests
 
         var cmd = ProgramTestHelper.BuildLlamaCmd(cfg);
 
-        Assert.True(cmd.Contains("--temperature"));
-        Assert.True(cmd.Contains("0.30"));
+        Assert.Contains("--temperature", cmd);
+        Assert.Contains("0.30", cmd);
     }
 
     [Fact]
@@ -163,8 +163,8 @@ public class RunCommandTests
 
         var cmd = ProgramTestHelper.BuildLlamaCmd(cfg);
 
-        Assert.True(cmd.Contains("--top-p"));
-        Assert.True(cmd.Contains("0.50"));
+        Assert.Contains("--top-p", cmd);
+        Assert.Contains("0.50", cmd);
     }
 
     [Fact]
@@ -199,6 +199,6 @@ public class RunCommandTests
 
         var cmd = ProgramTestHelper.BuildLlamaCmd(cfg);
 
-        Assert.False(cmd.Contains("--flash-attn"));
+        Assert.DoesNotContain("--flash-attn", cmd);
     }
 }
