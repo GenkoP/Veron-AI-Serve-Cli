@@ -20,7 +20,7 @@ public static class Program
         string modelsDir = opts.GetValueOrDefault("models-dir") ?? CliParser.ExpandEnv(DefaultModelsDir);
 
         // Validate --force/-f is only used with remove command
-        if (command != "remove" && command != "rm" && command != "claude")
+        if (command != "remove" && command != "rm")
         {
             bool hasForce = false;
             foreach (var arg in rawArgs.Skip(1))
@@ -69,7 +69,7 @@ COMMANDS
   ls, list            List all available modelfiles
   create <name> <path> Create a profile from a modelfile (validates first)
   serve <name>        Start llama-server with the given model profile (foreground)
-  claude <name>       Start llama-server then launch claude code
+  claude <name>       Start llama-server then launch claude code (auto-stops server on exit)
   run <name>          Run llama-cli interactively with the given model profile
   ps                  List currently running servers
   stop [name]         Stop a specific server, or all if no name given
@@ -94,7 +94,7 @@ SERVE / CLAUDE OPTIONS
   --n-gpu-layers <n>   GPU layers to offload
   --batch-size <n>     Batch size
   --wait <n>           Seconds to wait for server readiness  (default: 30)
-  --foreground, -f    Start llama-server in a new terminal window (claude only)
+  --foreground        Start llama-server in a new terminal window (claude only)
 
 RUN OPTIONS
   <name>               Modelfile name (without extension) in ~/.veron/modelfiles/

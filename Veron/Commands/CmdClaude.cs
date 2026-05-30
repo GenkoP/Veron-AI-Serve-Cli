@@ -4,6 +4,8 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Veron;
 
@@ -18,7 +20,7 @@ static class CmdClaude
         // The model profile name the user typed
         string modelName = opts.GetValueOrDefault("model") ?? throw new ArgumentNullException("model argument required");
 
-        bool foreground = CliParser.OptsBool(opts, "foreground") || CliParser.OptsBool(opts, "f");
+        bool foreground = CliParser.OptsBool(opts, "foreground");
 
         // Check if server is already running for this model — reuse if so
         bool serverAlreadyRunning = StateManager.IsServerRunning(modelName);
@@ -30,6 +32,7 @@ static class CmdClaude
             Console.WriteLine("Starting llama-server for " + cfg.Alias + " on port " + cfg.Port + " ...");
 
             ProcessStartInfo psi;
+            bool isBackground = false; // true when using BuildBackgroundServerPsi
 
             if (foreground)
             {
@@ -51,11 +54,21 @@ static class CmdClaude
             }
             else
             {
-                psi = LlamaServer.ServerPsi(cmd);
+                // Start as a detached background process — streams are redirected
+                // and drained so llama-server output doesn't clutter the veron console.
+                psi = BuildBackgroundServerPsi(cmd);
+                isBackground = true;
             }
 
             var serverProc = Process.Start(psi)
                             ?? throw new InvalidOperationException("Failed to start llama-server");
+
+            // Start stream draining threads so the server doesn't block on full pipe buffers
+            if (isBackground)
+            {
+                _ = Task.Run(() => { try { serverProc.StandardOutput.ReadToEnd(); } catch { } });
+                _ = Task.Run(() => { try { serverProc.StandardError.ReadToEnd(); } catch { } });
+            }
 
             string baseUrl = "http://localhost:" + cfg.Port;
 
@@ -109,6 +122,10 @@ static class CmdClaude
         // Build claude code CLI arguments
         var claudeArgs = new List<string> { "code" };
 
+        // Pass the model alias so Claude Code knows which model it's using
+        claudeArgs.Add("--model");
+        claudeArgs.Add(cfg.Alias);
+
         if (toolConfigs is not null && toolConfigs.TryGetValue(toolName, out var toolCfg))
         {
             foreach (var (key, value) in toolCfg.Parameters)
@@ -140,9 +157,10 @@ static class CmdClaude
         Console.WriteLine("Launching claude code ...");
         Console.WriteLine("  ANTHROPIC_BASE_URL             = " + baseUrl2);
         Console.WriteLine("  CLAUDE_CODE_ATTRIBUTION_HEADER = 0");
+        Console.WriteLine("  --model                          = " + cfg.Alias);
 
-        if (claudeArgs.Count > 1)
-            Console.WriteLine("  TOOL claude-code args        = " + string.Join(" ", claudeArgs.Skip(1)));
+        if (toolConfigs is not null && toolConfigs.ContainsKey(toolName))
+            Console.WriteLine("  TOOL claude-code args        = " + string.Join(" ", claudeArgs.Skip(3)));
 
         Console.WriteLine();
 
@@ -158,6 +176,30 @@ static class CmdClaude
             Environment.Exit(1);
         }
 
-        // Do NOT stop the server when claude exits — leave it running
+        // Stop the server if we started it (not if it was already running)
+        if (!serverAlreadyRunning)
+        {
+            Console.WriteLine();
+            Console.WriteLine("Claude exited — stopping llama-server for " + modelName + " ...");
+            StateManager.StopServer(modelName);
+            PidManager.DeletePid();
+        }
+    }
+
+    /// <summary>
+    /// Builds a ProcessStartInfo for running llama-server as a detached background process.
+    /// All streams are redirected so the server output doesn't clutter the veron console.
+    /// Stream draining is handled by Task.Run(ReadToEnd) after the process starts.
+    /// </summary>
+    static ProcessStartInfo BuildBackgroundServerPsi(List<string> cmd)
+    {
+        return new ProcessStartInfo(cmd[0], string.Join(" ", cmd.Skip(1).Select(CliParser.EscapeArg)))
+        {
+            UseShellExecute   = false,
+            CreateNoWindow    = true,
+            RedirectStandardInput  = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError  = true,
+        };
     }
 }

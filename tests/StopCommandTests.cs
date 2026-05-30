@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.IO;
 using Veron;
 using Xunit;
 
@@ -28,32 +30,25 @@ public class StopCommandTests
     }
 
     [Fact]
-    public void Claude_Does_Not_Stop_Server_On_Exit()
+    public void StateManager_Writes_And_Reads_Server_State()
     {
-        var tmpDir = Path.Join(Path.GetTempPath(), "claude-test");
-        Directory.CreateDirectory(tmpDir);
+        string modelName = "state-test-model";
 
-        try
+        var state = new ServerState
         {
-            var state = new ServerState
-            {
-                Model = "test-model",
-                From = "Test.gguf",
-                Port = 5570,
-                Context = 4096,
-                Pid = 1, // init always exists
-                StartedAt = DateTime.UtcNow
-            };
+            Model = modelName,
+            From = "Test.gguf",
+            Port = 5570,
+            Context = 4096,
+            Pid = 99999999, // dead PID — won't actually be alive
+            StartedAt = DateTime.UtcNow
+        };
 
-            StateManager.WriteState(state);
+        StateManager.WriteState(state);
 
-            Assert.NotNull(StateManager.GetState("test-model"));
-            Assert.True(StateManager.IsServerRunning("test-model"));
-        }
-        finally
-        {
-            StateManager.DeleteState("test-model");
-            Directory.Delete(tmpDir, recursive: true);
-        }
+        Assert.NotNull(StateManager.GetState(modelName));
+
+        // Dead PID means server is not considered running (and state is cleaned up)
+        Assert.False(StateManager.IsServerRunning(modelName));
     }
 }

@@ -110,6 +110,11 @@ static class StateManager
         {
             Console.WriteLine("Process " + state.Pid + " already gone.");
         }
+        catch (InvalidOperationException)
+        {
+            // Process tree contains the calling process (e.g., PID 1) — can't kill
+            Console.WriteLine("Cannot kill process tree for PID " + state.Pid + ", skipping.");
+        }
         finally
         {
             DeleteState(modelName);
@@ -135,6 +140,10 @@ static class StateManager
             catch (ArgumentException)
             {
                 // Already gone
+            }
+            catch (InvalidOperationException)
+            {
+                // Process tree contains the calling process — can't kill
             }
             finally
             {
