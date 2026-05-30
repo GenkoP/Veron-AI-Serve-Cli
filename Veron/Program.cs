@@ -37,6 +37,8 @@ public static class Program
 
         switch (command)
         {
+            case "cat":     CmdCat.Run(opts.GetValueOrDefault("model")
+                    ?? throw new ArgumentNullException("model argument required for cat")); break;
             case "ls":
             case "list":    CmdList.Run(modelsDir); break;
             case "create":  CmdCreate.Run(opts, modelsDir); break;
@@ -66,6 +68,7 @@ USAGE
   veron <command> [options]
 
 COMMANDS
+  cat <name>          Show raw modelfile content
   ls, list            List all available modelfiles
   create <name> <path> Create a profile from a modelfile (validates first)
   serve <name>        Start llama-server with the given model profile (foreground)
