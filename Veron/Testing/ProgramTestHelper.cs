@@ -17,4 +17,7 @@ public static class ProgramTestHelper
         // but ValidateToolBlocks only needs sourcePath since it validates TOOL blocks only.
         return ClaudeCodeValidator.ValidateToolBlocks(sourcePath);
     }
+
+    public static List<string> BuildLlamaCmd(ModelConfig cfg) =>
+        LlamaCli.BuildLlamaCmd(cfg);
 }

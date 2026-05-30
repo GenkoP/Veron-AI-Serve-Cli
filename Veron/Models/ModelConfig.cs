@@ -1,6 +1,6 @@
 namespace Veron;
 
-class ModelConfig
+public class ModelConfig
 {
     public string  ModelPath     { get; set; } = "";
     public string  Alias         { get; set; } = "";
