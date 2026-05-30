@@ -974,6 +974,25 @@ MODELFILeS
     PARAMETER batch_size 512
     PARAMETER wait 30
 
+    TOOL claude-code
+      PARAMETER permission-mode auto
+      PARAMETER tools Bash,Edit,Read,Write
+      PARAMETER append-system-prompt ""You are working with a local model""
+      PARAMETER effort high
+    END_TOOL
+
+    TOOL parameters for claude-code:
+      permission-mode     Permission mode (auto, plan, dontAsk, bypassPermissions, default, acceptEdits)
+      tools               Comma-separated list of allowed tools
+      disallowedTools     Comma-separated list of denied tools
+      allowedTools        Comma-separated tools that don't need prompting
+      append-system-prompt Append text to the system prompt
+      effort              Effort level (low, medium, high, xhigh, max)
+      max-budget-usd      Max dollar amount (print mode)
+      max-turns           Agentic turn limit (print mode)
+
+    Unknown TOOL parameters are passed through.
+
   You can create multiple profiles for the same GGUF model, e.g.:
     ~/.veron/modelfiles/my-model-small   (context 32000)
     ~/.veron/modelfiles/my-model-large   (context 128000)
