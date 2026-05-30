@@ -80,4 +80,30 @@ public class ServerTrackingTests
         var result = StateManager.GetState("nonexistent-model");
         Assert.Null(result);
     }
+
+    [Fact]
+    public void Serve_Writes_State_File_After_Start()
+    {
+        var state = new ServerState
+        {
+            Model = "test-model",
+            From = "Test.gguf",
+            Port = 9999,
+            Context = 4096,
+            Pid = 1, // init process always exists
+            StartedAt = DateTime.UtcNow
+        };
+
+        StateManager.WriteState(state);
+
+        var path = System.IO.Path.Join(Paths.ServersDir, "test-model.json");
+        Assert.True(System.IO.File.Exists(path));
+
+        var read = StateManager.GetState("test-model");
+        Assert.NotNull(read);
+        Assert.Equal(9999, read.Port);
+
+        // Cleanup
+        StateManager.DeleteState("test-model");
+    }
 }
