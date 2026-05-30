@@ -37,8 +37,19 @@ public class CatCommandTests
     {
         string testName = "cat-test-nonexistent-" + Guid.NewGuid().ToString("N")[..8];
 
-        var ex = Assert.ThrowsAny<Environment.ExitException>(() => CmdCat.Run(testName));
-        Assert.Equal(1, ex.ExitCode);
+        // Capture stderr
+        using var stderrWriter = new StringWriter();
+        Console.SetError(stderrWriter);
+
+        // Capture exit code without actually terminating the process
+        int? exitCode = null;
+        CmdCat.Run(testName, code => exitCode = code);
+
+        Assert.Equal(1, exitCode);
+
+        string stderr = stderrWriter.ToString();
+        Assert.Contains(testName, stderr);
+        Assert.Contains("No modelfile found", stderr);
     }
 
     [Fact]
