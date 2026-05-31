@@ -63,6 +63,12 @@ veron run qwopus
 # One-shot prompt
 veron run qwopus --prompt "Explain quantum computing"
 
+# Launch Copilot CLI with the server (auto-stops when done)
+veron copilot qwopus
+
+# One-shot prompt with copilot
+veron copilot qwopus --prompt "Fix the bug in main.js"
+
 # Stop a previously started server
 veron stop
 
@@ -83,6 +89,7 @@ veron v
 | `create <name> <path>` | — | Copy and validate a modelfile as a profile into `~/.veron/modelfiles/` |
 | `serve <name>` | — | Start llama-server with the given profile (runs in foreground) |
 | `claude <name>` | — | Start llama-server, set env vars, then launch `claude code`. Auto-stops when claude exits |
+| `copilot <name>` | — | Start llama-server, set env vars, then launch `copilot`. Auto-stops when copilot exits |
 | `run <name>` | — | Run llama-cli interactively with the given model profile |
 | `stop` | — | Stop a specific server by name, or all if no name given |
 | `ps` | — | List currently running servers |
@@ -184,6 +191,14 @@ TOOL claude-code
   PARAMETER tools Bash,Edit,Read,Write
   PARAMETER append-system-prompt "You are working with a local model"
   PARAMETER effort high
+END_TOOL
+
+# ── GitHub Copilot CLI configuration ───
+TOOL copilot
+  PARAMETER effort high
+  PARAMETER mode interactive
+  PARAMETER allow-tool Bash,Edit,Read,Write
+  PARAMETER log-level info
 END_TOOL
 ```
 
@@ -315,6 +330,34 @@ export CLAUDE_CODE_ATTRIBUTION_HEADER=0
 
 Then launches `claude code` with those env vars. TOOL block parameters are passed as CLI flags to the Claude Code command.
 
+## Environment Variables (set by `copilot`)
+
+When you run `veron copilot`, it automatically sets:
+
+```bash
+export COPILOT_PROVIDER_TYPE="openai"
+export COPILOT_PROVIDER_BASE_URL="http://localhost:<port>/v1"
+export COPILOT_MODEL="<alias>"
+export COPILOT_OFFLINE="true"
+```
+
+Then launches `copilot --model <alias>` with those env vars. TOOL block parameters are passed as CLI flags to the Copilot command.
+
+**Supported Copilot CLI parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `effort` / `reasoning-effort` | string | Reasoning effort: `none`, `low`, `medium`, `high`, `xhigh`, `max` |
+| `mode` | string | Agent mode: `interactive`, `plan`, `autopilot` |
+| `log-level` | string | Log level: `none`, `error`, `warning`, `info`, `debug`, `all`, `default` |
+| `stream` | string | Streaming mode: `on`, `off` |
+| `output-format` | string | Output format: `text`, `json` |
+| `bash-env` | string | BASH_ENV support: `on`, `off` |
+| `mouse` | string | Mouse support: `on`, `off` |
+| `max-autopilot-continues` | integer | Max continuation messages in autopilot mode |
+
+Unknown parameters are passed through as-is, so future Copilot CLI flags work without needing Veron updates.
+
 ## Examples
 
 ```bash
@@ -332,6 +375,12 @@ veron serve minicpm --port 8080
 
 # Launch Claude Code with a profile
 veron claude qwopus
+
+# Launch Copilot CLI with a profile
+veron copilot qwopus
+
+# One-shot prompt with copilot
+veron copilot qwopus --prompt "Fix the bug in main.js"
 
 # Launch Claude Code with smaller context profile
 veron claude qwopus-small --port 5571
