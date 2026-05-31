@@ -226,8 +226,8 @@ static class ModelfileParser
                 int spaceIdx = rest.IndexOf(' ');
                 if (spaceIdx < 0)
                 {
-                    string key = rest.Trim();
-                    result[currentToolName].Parameters[key] = null; // bare flag
+                    string bareKey = rest.Trim();
+                    result[currentToolName].Parameters[bareKey] = null; // bare flag
                     continue;
                 }
 
