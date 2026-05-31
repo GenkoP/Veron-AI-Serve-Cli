@@ -7,7 +7,7 @@ public static class ProgramTestHelper
     public static Dictionary<string, ToolConfig> ParseToolBlocks(string path) =>
         ModelfileParser.ParseToolBlocks(path);
 
-    public static List<string> ValidateClaudeCodeParameter(string key, string value) =>
+    public static List<string> ValidateClaudeCodeParameter(string key, string? value) =>
         ClaudeCodeValidator.ValidateClaudeCodeParameter(key, value);
 
     public static List<string> ValidateToolBlocks(string sourcePath, string name, string modelsDir)
