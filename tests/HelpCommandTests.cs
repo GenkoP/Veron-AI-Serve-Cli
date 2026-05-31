@@ -70,4 +70,50 @@ public class HelpCommandTests
         Assert.Contains("--models-dir", output);
         Assert.Contains("veron <command> --help", output);
     }
+
+    [Fact]
+    public void CmdHelp_TopLevel_Contains_All_Commands()
+    {
+        using var sw = new StringWriter();
+        Console.SetOut(sw);
+
+        CmdHelp.Run(null);
+
+        string output = sw.ToString();
+
+        // Verify all commands appear
+        Assert.Contains("cat", output);
+        Assert.Contains("ls", output);
+        Assert.Contains("create", output);
+        Assert.Contains("serve", output);
+        Assert.Contains("claude", output);
+        Assert.Contains("copilot", output);
+        Assert.Contains("run", output);
+        Assert.Contains("ps", output);
+        Assert.Contains("stop", output);
+        Assert.Contains("remove", output);
+        Assert.Contains("version", output);
+
+        // Verify footer is present
+        Assert.Contains("veron <command> --help", output);
+
+        // Verify per-command options are NOT in top-level help
+        Assert.DoesNotContain("--port", output);
+        Assert.DoesNotContain("--context", output);
+        Assert.DoesNotContain("--prompt", output);
+    }
+
+    [Fact]
+    public void CmdHelp_Run_Serve_Shows_Options()
+    {
+        using var sw = new StringWriter();
+        Console.SetOut(sw);
+
+        CmdHelp.Run("serve");
+
+        string output = sw.ToString();
+        Assert.Contains("--port", output);
+        Assert.Contains("--context", output);
+        Assert.Contains("--alias", output);
+    }
 }
