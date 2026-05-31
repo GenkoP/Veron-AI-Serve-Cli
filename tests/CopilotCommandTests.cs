@@ -137,4 +137,56 @@ public class CopilotCommandTests
         var errors = CopilotValidator.ValidateCopilotParameter("some-future-flag", "anything");
         Assert.Empty(errors);
     }
+
+    // ── Server State Management Tests ──────────────────────────────
+
+    [Fact]
+    public void StateManager_StopServer_Returns_False_For_Nonexistent_Copilot()
+    {
+        bool result = StateManager.StopServer("nonexistent-copilot-test");
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void StateManager_WriteAndStop_Copilot_ServerState()
+    {
+        string modelName = "copilot-test-model";
+
+        var state = new ServerState
+        {
+            Model = modelName,
+            From = "Test.gguf",
+            Port = 5570,
+            Context = 4096,
+            Pid = 99999999, // dead PID — StopServer will clean up and return false
+            StartedAt = DateTime.UtcNow
+        };
+
+        StateManager.WriteState(state);
+
+        // Dead PID means IsServerRunning returns false (and cleans up)
+        Assert.False(StateManager.IsServerRunning(modelName));
+    }
+
+    [Fact]
+    public void StateManager_DeleteState_Copilot_Removes_File()
+    {
+        string modelName = "copilot-delete-test";
+
+        var state = new ServerState
+        {
+            Model = modelName,
+            From = "Test.gguf",
+            Port = 5571,
+            Context = 4096,
+            Pid = 1,
+            StartedAt = DateTime.UtcNow
+        };
+
+        StateManager.WriteState(state);
+        Assert.True(File.Exists(StateManager.StateFilePath(modelName)));
+
+        StateManager.DeleteState(modelName);
+        Assert.False(File.Exists(StateManager.StateFilePath(modelName)));
+    }
 }
