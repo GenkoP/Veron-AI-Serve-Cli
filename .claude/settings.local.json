@@ -15,7 +15,10 @@
       "Bash(dotnet test *)",
       "Bash(dotnet run *)",
       "Bash(bin/release/Veron *)",
-      "Bash(dotnet *)"
+      "Bash(dotnet *)",
+      "Bash(git merge *)",
+      "Bash(git branch *)",
+      "Bash(git stash *)"
     ]
   }
 }
