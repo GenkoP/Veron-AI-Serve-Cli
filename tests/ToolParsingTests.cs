@@ -198,6 +198,21 @@ END_TOOL";
     }
 
     [Fact]
+    public void ParseToolBlocks_Bare_Flag_Stores_Null()
+    {
+        var content = @"FROM model.gguf
+TOOL copilot
+  PARAMETER yolo
+  PARAMETER effort high
+END_TOOL";
+        using var tmp = CreateTempFile(content);
+        var result = ProgramTestHelper.ParseToolBlocks(tmp.Path);
+        Assert.True(result.ContainsKey("copilot"));
+        Assert.Null(result["copilot"].Parameters["yolo"]); // bare flag → null
+        Assert.Equal("high", result["copilot"].Parameters["effort"]); // normal param unchanged
+    }
+
+    [Fact]
     public void ValidateModelfile_Rejects_Nested_Tools()
     {
         var content = @"FROM MiniCPM5-1B-Q4_K_M.gguf
