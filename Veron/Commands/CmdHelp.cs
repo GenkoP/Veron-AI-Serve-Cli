@@ -106,7 +106,12 @@ static class CmdHelp
 
     // ── Public API ───────────────────────────────────────────────────────────
 
-    public static CommandHelp? Get(string commandName) => Commands.GetValueOrDefault(commandName);
+    public static CommandHelp? Get(string commandName)
+    {
+        if (Commands.TryGetValue(commandName, out var entry))
+            return entry;
+        return null;
+    }
 
     public static string[] TopLevelCommandNames() => Commands.Keys.ToArray();
 
