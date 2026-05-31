@@ -49,6 +49,7 @@ public static class Program
             case "serve":   CmdServe.Run(opts, modelsDir); break;
             case "claude":  CmdClaude.Run(opts, modelsDir); break;
             case "run":     CmdRun.Run(opts, modelsDir); break;
+            case "copilot": CmdCopilot.Run(opts, modelsDir); break;
             case "stop":    CmdStop.Run(opts); break;
             case "ps":        CmdPs.Run(); break;
             case "remove":
@@ -73,6 +74,7 @@ COMMANDS
   create <name> <path> Create a profile from a modelfile (validates first)
   serve <name>        Start llama-server with the given model profile (foreground)
   claude <name>       Start llama-server then launch claude code (auto-stops server on exit)
+  copilot <name>      Start llama-server then launch copilot (auto-stops server on exit)
   run <name>          Run llama-cli interactively with the given model profile
   ps                  List currently running servers
   stop [name]         Stop a specific server, or all if no name given
@@ -98,6 +100,10 @@ SERVE / CLAUDE OPTIONS
   --batch-size <n>     Batch size
   --wait <n>           Seconds to wait for server readiness  (default: 30)
   --foreground        Start llama-server in a new terminal window (claude only)
+
+COPILOT OPTIONS
+  <name>               Modelfile name (without extension) in ~/.veron/modelfiles/
+  --prompt <text>      Execute a prompt in non-interactive mode (exits after completion)
 
 RUN OPTIONS
   <name>               Modelfile name (without extension) in ~/.veron/modelfiles/
@@ -162,6 +168,8 @@ EXAMPLES
   veron run my-model
   veron run my-model --prompt ""Explain quantum computing""
   veron serve Qwopus3.6-27b-MTP
+  veron copilot qwopus
+  veron copilot qwopus --prompt ""Fix the bug in main.js""
 
 ENVIRONMENT (set automatically by 'claude')
   ANTHROPIC_BASE_URL          = http://localhost:<port>
