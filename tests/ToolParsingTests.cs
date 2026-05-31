@@ -220,6 +220,19 @@ END_TOOL";
     }
 
     [Fact]
+    public void ValidateModelfile_Accepts_Bare_Flag_Param()
+    {
+        var content = @"FROM MiniCPM5-1B-Q4_K_M.gguf
+TOOL copilot
+  PARAMETER yolo
+  PARAMETER effort high
+END_TOOL";
+        using var tmp = CreateTempFile(content);
+        var errors = ProgramTestHelper.ValidateToolBlocks(tmp.Path, "test-name", "/home/genkop/Workspace/llama-cpp/models");
+        Assert.Empty(errors);
+    }
+
+    [Fact]
     public void ValidateModelfile_Rejects_Nested_Tools()
     {
         var content = @"FROM MiniCPM5-1B-Q4_K_M.gguf
