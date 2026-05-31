@@ -224,7 +224,12 @@ static class ModelfileParser
             {
                 string rest = line[9..].Trim();
                 int spaceIdx = rest.IndexOf(' ');
-                if (spaceIdx < 0) continue;
+                if (spaceIdx < 0)
+                {
+                    string key = rest.Trim();
+                    result[currentToolName].Parameters[key] = null; // bare flag
+                    continue;
+                }
 
                 string key   = rest[..spaceIdx].Trim();
                 string value = rest[(spaceIdx + 1)..].Trim();

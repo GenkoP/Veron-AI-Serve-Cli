@@ -138,7 +138,8 @@ static class CmdClaude
                 }
 
                 claudeArgs.Add("--" + key);
-                claudeArgs.Add(value);
+                if (value is not null)
+                    claudeArgs.Add(value);
             }
 
             Console.WriteLine("Using TOOL claude-code config from modelfile");

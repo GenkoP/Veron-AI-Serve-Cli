@@ -114,7 +114,8 @@ static class CmdCopilot
                 }
 
                 copilotArgs.Add("--" + key);
-                copilotArgs.Add(value);
+                if (value is not null)
+                    copilotArgs.Add(value);
             }
 
             Console.WriteLine("Using TOOL copilot config from modelfile");
