@@ -5,7 +5,7 @@ namespace Veron;
 
 static class CopilotValidator
 {
-    static readonly Dictionary<string, HashSet<string>> KnownModes = new()
+    static readonly Dictionary<string, HashSet<string>> KnownCopilotModes = new()
     {
         ["effort"]             = new() { "none", "low", "medium", "high", "xhigh", "max" },
         ["reasoning-effort"]   = new() { "none", "low", "medium", "high", "xhigh", "max" },
@@ -17,7 +17,7 @@ static class CopilotValidator
         ["mouse"]              = new() { "on", "off" },
     };
 
-    static readonly HashSet<string> KnownIntParams = new()
+    static readonly HashSet<string> KnownCopilotIntParams = new()
     {
         "max-autopilot-continues"
     };
@@ -27,7 +27,7 @@ static class CopilotValidator
         var errors = new List<string>();
 
         // Check known enum parameters
-        if (KnownModes.TryGetValue(key, out var validValues))
+        if (KnownCopilotModes.TryGetValue(key, out var validValues))
         {
             if (!validValues.Contains(value))
             {
@@ -38,7 +38,7 @@ static class CopilotValidator
         }
 
         // Check known integer parameters
-        if (KnownIntParams.Contains(key))
+        if (KnownCopilotIntParams.Contains(key))
         {
             if (!int.TryParse(value, out _))
             {
