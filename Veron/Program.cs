@@ -35,6 +35,19 @@ public static class Program
             }
         }
 
+        // Check for per-command --help
+        bool hasHelp = false;
+        foreach (var arg in rawArgs.Skip(1))
+        {
+            if (arg == "--help" || arg == "-h") { hasHelp = true; break; }
+        }
+
+        if (hasHelp)
+        {
+            CmdHelp.Run(command);
+            return;
+        }
+
         switch (command)
         {
             case "cat":     CmdCat.Run(opts.GetValueOrDefault("model")
