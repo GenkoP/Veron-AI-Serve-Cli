@@ -131,6 +131,13 @@ public class CopilotCommandTests
     }
 
     [Fact]
+    public void Validator_NullValue_BareFlag_Passes()
+    {
+        var errors = CopilotValidator.ValidateCopilotParameter("yolo", null);
+        Assert.Empty(errors);
+    }
+
+    [Fact]
     public void Validator_UnknownParam_PassesThrough()
     {
         // Unknown parameters should pass through without validation

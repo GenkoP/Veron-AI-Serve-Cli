@@ -22,8 +22,10 @@ static class CopilotValidator
         "max-autopilot-continues"
     };
 
-    public static List<string> ValidateCopilotParameter(string key, string value)
+    public static List<string> ValidateCopilotParameter(string key, string? value)
     {
+        if (value is null) return new(); // bare flag — nothing to validate
+
         var errors = new List<string>();
 
         // Check known enum parameters
