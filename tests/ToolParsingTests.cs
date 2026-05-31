@@ -153,6 +153,13 @@ TOOL claude-code
     }
 
     [Fact]
+    public void ValidateClaudeCodeParameter_NullValue_BareFlag_Passes()
+    {
+        var errors = ProgramTestHelper.ValidateClaudeCodeParameter("yolo", null);
+        Assert.Empty(errors);
+    }
+
+    [Fact]
     public void ValidateClaudeCodeParameter_Unknown_Passthrough()
     {
         // Unknown params pass through without validation

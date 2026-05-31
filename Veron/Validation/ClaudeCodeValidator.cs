@@ -21,8 +21,10 @@ static class ClaudeCodeValidator
         "max-budget-usd"
     };
 
-    public static List<string> ValidateClaudeCodeParameter(string key, string value)
+    public static List<string> ValidateClaudeCodeParameter(string key, string? value)
     {
+        if (value is null) return new(); // bare flag — nothing to validate
+
         var errors = new List<string>();
 
         // Check if this is a known parameter with specific valid values
