@@ -41,7 +41,7 @@ static class CmdStats
         var rate = new LiveRate(TimeSpan.FromSeconds(2));
         var seen = new HashSet<(int?, int)>();
         bool seeded = false;
-        string? lastModel = null;
+        string? lastPhase = null;
 
         if (tty) Console.Write("\x1b[?25l\x1b[2J");
         try
@@ -61,15 +61,17 @@ static class CmdStats
                 {
                     var slot = snap.Slot;
                     double? live = null;
-                    if (slot is { IsProcessing: true } && slot.PromptTokensProcessed >= slot.PromptTokens)
-                        live = rate.Add(snap.Now, slot.Decoded);
+                    string? phase = slot is null || !slot.IsProcessing ? null : slot.Decoded > 0 ? "gen" : "prompt";
+                    if (phase != lastPhase) rate.Reset();
+                    lastPhase = phase;
+                    if (phase == "gen") live = rate.Add(snap.Now, slot!.Decoded);
+                    else if (phase == "prompt") live = rate.Add(snap.Now, slot!.PromptTokens);
                     else rate.Reset();
 
                     if (tty)
                         Draw(Render(snap, live, TerminalWidth(), watch: true, client.BaseUrl));
                     else
                     {
-                        if (snap.Model != lastModel) { seen.Clear(); seeded = false; lastModel = snap.Model; }
                         var fresh = TakeNew(snap, seen);
                         if (seeded)
                             foreach (var t in fresh) Console.WriteLine(FormatLine(snap.Model ?? "", t));
@@ -131,25 +133,34 @@ static class CmdStats
         }
         else
         {
-            bool promptPhase = slot.IsProcessing && slot.PromptTokensProcessed < slot.PromptTokens;
-            bool generating  = slot.IsProcessing && !promptPhase;
-            string state = promptPhase
-                ? $"● processing prompt {N(slot.PromptTokensProcessed)} / {N(slot.PromptTokens)} " +
-                  $"({(int)(100.0 * slot.PromptTokensProcessed / Math.Max(1, slot.PromptTokens))}%)"
-                : generating ? "● generating" : "○ idle";
+            // /slots semantics: PromptTokens = tokens in the slot context so far (grows per batch while the
+            // prompt is read, then includes generated tokens); Decoded = generated tokens, 0 until generation starts.
+            bool generating  = slot.IsProcessing && slot.Decoded > 0;
+            bool promptPhase = slot.IsProcessing && slot.Decoded == 0;
+            string liveText = liveRate is { } r ? "  " + (promptPhase ? N(r) : F1(r)) + " t/s" : "";
+            string state = promptPhase ? "● processing prompt  " + N(slot.PromptTokens) + " tokens so far" + liveText
+                         : generating  ? "● generating"
+                         : "○ idle";
             sb.Append("State      ").Append(state).Append('\n');
 
-            sb.Append("Prompt     ").Append(N(slot.PromptTokens)).Append(" tokens");
-            if (slot.PromptTokensCached > 0) sb.Append("  (").Append(N(slot.PromptTokensCached)).Append(" from cache)");
+            sb.Append("Prompt     ");
+            if (generating)
+            {
+                sb.Append(N(Math.Max(0, slot.PromptTokens - slot.Decoded))).Append(" tokens");
+                if (slot.PromptTokensCached > 0) sb.Append("  (").Append(N(slot.PromptTokensCached)).Append(" from cache)");
+            }
+            else sb.Append('—');
             sb.Append('\n');
 
-            int nctx  = slot.NCtx > 0 ? slot.NCtx : snap.Context;
-            int used  = slot.PromptTokens + slot.Decoded;
-            string pct = nctx > 0 ? $"  ({(100.0 * used / nctx).ToString("0.0", Inv)}%)" : "";
-            sb.Append("Context    ").Append(N(used)).Append(" / ").Append(N(nctx)).Append(pct).Append('\n');
+            int nctx = slot.NCtx > 0 ? slot.NCtx : snap.Context;
+            string pct = nctx > 0 ? $"  ({(100.0 * slot.PromptTokens / nctx).ToString("0.0", Inv)}%)" : "";
+            sb.Append("Context    ").Append(N(slot.PromptTokens)).Append(" / ").Append(N(nctx)).Append(pct).Append('\n');
 
-            sb.Append("Output     ").Append(N(slot.Decoded)).Append(" tokens    ")
-              .Append(generating && liveRate is { } r ? F1(r) + " t/s live" : "—").Append('\n');
+            sb.Append("Output     ");
+            if (generating)
+                sb.Append(N(slot.Decoded)).Append(" tokens    ").Append(liveRate is { } g ? F1(g) + " t/s live" : "—");
+            else sb.Append('—');
+            sb.Append('\n');
         }
 
         sb.Append("\nRecent requests\n");

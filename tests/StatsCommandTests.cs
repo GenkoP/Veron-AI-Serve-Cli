@@ -23,14 +23,16 @@ public class StatsCommandTests
     [Fact]
     public void Render_Idle()
     {
-        var snap = Snap(new SlotSnapshot(false, 35, 35, 0, 512, 262144), Recent);
+        var snap = Snap(new SlotSnapshot(false, 671, 0, 0, 0, 262144), Recent);
         var text = CmdStats.Render(snap, null, 100, watch: true);
         var l = Lines(text);
         Assert.StartsWith("Veron stats · qwen38 · ctx 262,144", l[0]);
         Assert.EndsWith("17:42:05  (Ctrl+C to quit)", l[0]);
         Assert.Contains("State      ○ idle", text);
-        Assert.Contains("Context    547 / 262,144  (0.2%)", text);
-        Assert.Contains("Output     512 tokens    —", text);
+        Assert.Contains("Prompt     —", text);
+        Assert.Contains("Context    671 / 262,144  (0.3%)", text);
+        Assert.Contains("Output     —", text);
+        Assert.DoesNotContain("671 tokens", text);
         Assert.Contains("Recent requests", text);
         Assert.Contains("17:41:52", text);
         Assert.Contains("63%", text);
@@ -48,22 +50,43 @@ public class StatsCommandTests
     }
 
     [Fact]
-    public void Render_PromptProcessing()
+    public void Render_PromptProcessing_Shows_Tokens_So_Far_And_Rate()
     {
-        var slot = new SlotSnapshot(true, 20024, 12288, 0, 0, 262144);
-        var text = CmdStats.Render(Snap(slot), null, 100, watch: true);
-        Assert.Contains("State      ● processing prompt 12,288 / 20,024 (61%)", text);
+        var slot = new SlotSnapshot(true, 10282, 8234, 0, 0, 262144);
+        var text = CmdStats.Render(Snap(slot), 1050.4, 100, watch: true);
+        Assert.Contains("State      ● processing prompt  10,282 tokens so far  1,050 t/s", text);
+        Assert.Contains("Output     —", text);
     }
 
     [Fact]
-    public void Render_Generating()
+    public void Render_PromptProcessing_Without_Rate()
     {
-        var slot = new SlotSnapshot(true, 20024, 20024, 19800, 386, 262144);
+        var slot = new SlotSnapshot(true, 2090, 42, 0, 0, 262144);
+        Assert.Contains("State      ● processing prompt  2,090 tokens so far\n",
+            CmdStats.Render(Snap(slot), null, 100, true) + "\n");
+    }
+
+    [Fact]
+    public void Render_Generating_Uses_Decoded_For_Phase_And_Output()
+    {
+        // n_prompt (10946) already includes the 39 generated tokens
+        var slot = new SlotSnapshot(true, 10946, 10908, 0, 39, 262144);
         var text = CmdStats.Render(Snap(slot, Recent), 91.3, 100, watch: true);
         Assert.Contains("State      ● generating", text);
+        Assert.DoesNotContain("processing prompt", text);
+        Assert.Contains("Prompt     10,907 tokens", text);
+        Assert.DoesNotContain("from cache", text);
+        Assert.Contains("Context    10,946 / 262,144  (4.2%)", text);
+        Assert.Contains("Output     39 tokens    91.3 t/s live", text);
+    }
+
+    [Fact]
+    public void Render_Generating_Shows_Cache_When_Present()
+    {
+        var slot = new SlotSnapshot(true, 20410, 224, 19800, 386, 262144);
+        var text = CmdStats.Render(Snap(slot), 91.3, 100, true);
         Assert.Contains("Prompt     20,024 tokens  (19,800 from cache)", text);
         Assert.Contains("Context    20,410 / 262,144  (7.8%)", text);
-        Assert.Contains("Output     386 tokens    91.3 t/s live", text);
     }
 
     [Fact]
@@ -142,5 +165,15 @@ public class StatsCommandTests
         Assert.Single(fresh);
         Assert.Equal(2, fresh[0].Task);
         Assert.Empty(CmdStats.TakeNew(snap, seen));
+    }
+
+    [Fact]
+    public void TakeNew_After_Model_Change_Still_Reports_New_Requests()
+    {
+        var seen = new HashSet<(int?, int)>();
+        var empty = new StatsSnapshot(Local(17, 0, 0), null, null, 0, null, 0, null, Array.Empty<RequestTiming>());
+        Assert.Empty(CmdStats.TakeNew(empty, seen));          // first snapshot seeds (nothing to see)
+        var loaded = Snap(null, Recent);                        // new model, requests already present
+        Assert.Equal(2, CmdStats.TakeNew(loaded, seen).Count);  // must not be swallowed
     }
 }
