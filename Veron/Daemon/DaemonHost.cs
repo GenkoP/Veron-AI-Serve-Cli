@@ -50,7 +50,7 @@ public static class DaemonHost
         var proxy = new ProxyEndpoint(registry, manager, http, log);
         var stats = new StatsCollector(manager);
 
-        app.MapGet("/health", () => Results.Json(new { status = "ok", service = "veron" }));
+        app.MapGet("/health", () => Results.Json(new { status = "ok", service = "veron", version = Program.Version }));
 
         app.MapGet("/v1/models", () => Results.Json(new
         {
@@ -118,6 +118,11 @@ public static class DaemonHost
             _ = Task.Run(async () => { await Task.Delay(100); life.StopApplication(); });
             return Results.Json(new { status = "stopping" });
         });
+
+        // Unknown admin paths must never fall through to the proxy (more specific routes above win)
+        app.Map("/veron/{**rest}", () => Results.Json(
+            new { type = "error", error = new { type = "not_found", message = "unknown Veron endpoint" } },
+            statusCode: 404));
 
         // Everything else is an inference API call for llama-server
         app.MapFallback(proxy.HandleAsync);

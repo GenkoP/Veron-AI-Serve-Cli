@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -17,12 +18,29 @@ static class CmdStats
     public static bool IsWatch(IEnumerable<string> args) =>
         args.Any(a => a is "--watch" or "-w" or "watch");
 
+    public const string OldDaemon = "The running Veron server is older than this CLI and has no stats — restart it with: veron shutdown";
+
+    /// <summary>True when the daemon version is missing/unparseable or older than the CLI's.</summary>
+    public static bool IsDaemonOlder(string? daemonVersion, string cliVersion)
+    {
+        if (!Version.TryParse(daemonVersion, out var d)) return true;
+        return Version.TryParse(cliVersion, out var c) && d < c;
+    }
+
     public static void Run(string[] args)
     {
+        if (args.Any(a => a is not ("--watch" or "-w" or "watch" or "--help" or "-h")))
+        {
+            Console.Error.WriteLine("Usage: veron stats [--watch|-w]");
+            Environment.Exit(1);
+            return;
+        }
         var client = DaemonClient.Default();
         if (IsWatch(args)) { Watch(client); return; }
 
         if (!client.IsRunning()) { Console.WriteLine(NotRunning); return; }
+        if (IsDaemonOlder(client.DaemonVersion(), Program.Version))
+        { Console.Error.WriteLine(OldDaemon); Environment.Exit(1); return; }
         StatsSnapshot snap;
         try { snap = client.Stats(); }
         catch (DaemonException ex) { Console.Error.WriteLine("Error: " + ex.Message); Environment.Exit(1); return; }
@@ -42,6 +60,7 @@ static class CmdStats
         var seen = new HashSet<(int?, int)>();
         bool seeded = false;
         string? lastPhase = null;
+        bool versionOk = false;
 
         if (tty) Console.Write("\x1b[?25l\x1b[2J");
         try
@@ -49,13 +68,31 @@ static class CmdStats
             while (!cts.IsCancellationRequested)
             {
                 StatsSnapshot? snap = null;
-                try { if (client.IsRunning()) snap = client.Stats(); }
-                catch (DaemonException) { }
+                string? message = null;
+                if (!client.IsRunning())
+                {
+                    versionOk = false;
+                    message = NotRunning.TrimEnd('.') + " — waiting…";
+                }
+                else
+                {
+                    // check the daemon version once per (re)connect; an old daemon is re-checked each poll
+                    if (!versionOk)
+                    {
+                        if (IsDaemonOlder(client.DaemonVersion(), Program.Version)) message = OldDaemon;
+                        else versionOk = true;
+                    }
+                    if (versionOk)
+                    {
+                        try { snap = client.Stats(); }
+                        catch (DaemonException ex) { message = "Error: " + ex.Message; }
+                    }
+                }
 
                 if (snap is null)
                 {
                     rate.Reset();
-                    if (tty) Draw(NotRunning.TrimEnd('.') + " — waiting…");
+                    if (tty) Draw(message ?? NotRunning);
                 }
                 else
                 {
@@ -82,6 +119,7 @@ static class CmdStats
                 cts.Token.WaitHandle.WaitOne(500);
             }
         }
+        catch (IOException) when (!tty) { /* reader closed the pipe (e.g. `| head -1`) */ }
         finally
         {
             Console.CancelKeyPress -= onCancel;
@@ -92,9 +130,22 @@ static class CmdStats
     static void Draw(string screen)
     {
         var sb = new StringBuilder("\x1b[H");
-        foreach (var line in screen.Split('\n')) sb.Append(line).Append("\x1b[K\n");
+        var lines = screen.Split('\n');
+        int max = Math.Max(1, TerminalHeight() - 1);
+        if (lines.Length > max) lines = lines[..max];
+        for (int i = 0; i < lines.Length; i++)
+        {
+            if (i > 0) sb.Append('\n');
+            sb.Append(lines[i]).Append("\x1b[K");
+        }
         sb.Append("\x1b[J");
         Console.Write(sb.ToString());
+    }
+
+    static int TerminalHeight()
+    {
+        try { int h = Console.WindowHeight; return h > 0 ? h : 40; }
+        catch { return 40; }
     }
 
     static int TerminalWidth()
@@ -124,7 +175,7 @@ static class CmdStats
         var sb = new StringBuilder();
         string left  = $"Veron stats · {snap.Model} · ctx {N(snap.Context)}";
         string right = Time(snap.Now) + (watch ? "  (Ctrl+C to quit)" : "");
-        sb.Append(left).Append(' ', Math.Max(2, width - left.Length - right.Length)).Append(right).Append("\n\n");
+        sb.Append(left).Append(' ', Math.Max(2, width - 1 - left.Length - right.Length)).Append(right).Append("\n\n");
 
         var slot = snap.Slot;
         if (slot is null)

@@ -178,6 +178,22 @@ public sealed class DaemonProxyTests : IAsyncLifetime
     {
         var doc = await _http.GetFromJsonAsync<JsonElement>("/health");
         Assert.Equal("veron", doc.GetProperty("service").GetString());
+        Assert.Equal(Program.Version, doc.GetProperty("version").GetString());
+        var uri = new Uri(_app.Urls.First());
+        Assert.Equal(Program.Version, await Task.Run(() => new DaemonClient(uri.Host, uri.Port).DaemonVersion()));
+    }
+
+    [Theory]
+    [InlineData("GET")]
+    [InlineData("POST")]
+    public async Task Unknown_Veron_Path_Is_404_And_Never_Reaches_Upstream(string method)
+    {
+        await _manager.AcquireAsync(_profiles.Registry().Resolve("alpha")!, default).ContinueWith(t => t.Result.Dispose());
+        using var resp = await _http.SendAsync(new HttpRequestMessage(new HttpMethod(method), "/veron/xyz"));
+        Assert.Equal(HttpStatusCode.NotFound, resp.StatusCode);
+        var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+        Assert.Equal("not_found", doc.RootElement.GetProperty("error").GetProperty("type").GetString());
+        Assert.Empty(_launcher.Requests);
     }
 
     [Fact]

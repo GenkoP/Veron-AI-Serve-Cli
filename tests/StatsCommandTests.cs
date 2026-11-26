@@ -20,6 +20,15 @@ public class StatsCommandTests
 
     static string[] Lines(string s) => s.Replace("\r", "").Split('\n');
 
+    [Theory]
+    [InlineData(null, true)]
+    [InlineData("", true)]
+    [InlineData("1.1.0", true)]
+    [InlineData("1.2.0", false)]
+    [InlineData("1.3.0", false)]
+    public void IsDaemonOlder(string? daemon, bool older) =>
+        Assert.Equal(older, CmdStats.IsDaemonOlder(daemon, "1.2.0"));
+
     [Fact]
     public void Render_Idle()
     {

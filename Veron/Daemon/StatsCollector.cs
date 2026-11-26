@@ -129,12 +129,13 @@ public sealed class StatsCollector : IDisposable
     string _partial = "";
     TimingLogState _state = new();
     DateTimeOffset? _start;
+    bool _startLookedUp;
 
     public StatsCollector(ModelManager manager, HttpMessageHandler? handler = null,
                           TimeProvider? time = null, Func<int, DateTimeOffset?>? processStart = null)
     {
         _manager      = manager;
-        _http         = handler is null ? new HttpClient() : new HttpClient(handler, disposeHandler: false);
+        _http         = handler is null ? new HttpClient(new SocketsHttpHandler { UseProxy = false }) : new HttpClient(handler, disposeHandler: false);
         _time         = time ?? TimeProvider.System;
         _processStart = processStart ?? DefaultProcessStart;
     }
@@ -173,6 +174,7 @@ public sealed class StatsCollector : IDisposable
         _logPath = path; _logPid = pid; _offset = 0; _partial = "";
         _state = new TimingLogState();
         _start = null;
+        _startLookedUp = false;
     }
 
     void UpdateLog(ModelStatus st)
@@ -202,7 +204,7 @@ public sealed class StatsCollector : IDisposable
 
         DateTimeOffset FinishedAt(TimeSpan offset)
         {
-            _start ??= _processStart(st.Pid);
+            if (_start is null && !_startLookedUp) { _startLookedUp = true; _start = _processStart(st.Pid); }
             return _start is { } s ? s + offset : _time.GetUtcNow();
         }
     }

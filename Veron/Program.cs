@@ -5,6 +5,7 @@ namespace Veron;
 
 public static class Program
 {
+    public const string Version = "1.2.0";
     const string DefaultModelsDir   = "/home/genkop/Workspace/llama-cpp/models";
 
     // ── Entry point ────────────────────────────────────────────────────────
@@ -81,6 +82,6 @@ public static class Program
 
     static void PrintVersion()
     {
-        Console.WriteLine("veron 1.2.0");
+        Console.WriteLine("veron " + Version);
     }
 }
