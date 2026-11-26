@@ -95,6 +95,12 @@ veron serve qwopus --keep-alive 30m
   cleaned up automatically.
 - **Unknown model names** (e.g. Claude Code's background Haiku requests) go to the loaded model; with no
   model loaded they get a 404. A profile whose `.gguf` is missing gets a 404 explaining why.
+- **Mid-conversation system messages.** Claude Code (2.1.x) sends its environment block and SessionStart
+  hook output as `role: "system"` entries inside `messages`. Chat templates such as Qwen's allow a system
+  message only at the start and fail the request with HTTP 500 ("System message must be at the beginning").
+  For `POST /v1/messages` (and `/v1/messages/count_tokens`) Veron folds each such message into the adjacent
+  user turn as a `<system-reminder>` text block before forwarding; the top-level `system` field and requests
+  without such messages are passed through untouched. OpenAI `/v1/chat/completions` bodies are never rewritten.
 - **Logs.** Each model's llama-server output goes to `~/.veron/logs/<profile>.log`; load failures return
   HTTP 503 with the last log lines.
 

@@ -248,6 +248,40 @@ public sealed class DaemonProxyTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Anthropic_Messages_Mid_Conversation_System_Is_Folded_Before_Upstream()
+    {
+        var resp = await _http.PostAsync("/v1/messages", Json(new
+        {
+            model = "alpha",
+            system = "top",
+            messages = new object[]
+            {
+                new { role = "user", content = "hello" },
+                new { role = "system", content = "# Environment\nlinux ü" },
+            },
+        }));
+        Assert.Equal(HttpStatusCode.Created, resp.StatusCode);
+
+        var sent = JsonDocument.Parse(_launcher.Requests.Single().Body).RootElement; // parses → length was right
+        Assert.Equal("top", sent.GetProperty("system").GetString());
+        var msg = Assert.Single(sent.GetProperty("messages").EnumerateArray());
+        Assert.Equal("user", msg.GetProperty("role").GetString());
+        Assert.Equal("<system-reminder>\n# Environment\nlinux ü\n</system-reminder>",
+                     msg.GetProperty("content")[1].GetProperty("text").GetString());
+    }
+
+    [Fact]
+    public async Task Chat_Completions_System_Messages_Are_Not_Touched()
+    {
+        string json = "{\"model\":\"alpha\",\"messages\":[{\"role\":\"user\",\"content\":\"q\"},{\"role\":\"system\",\"content\":\"s\"}]}";
+        using var resp = await _http.PostAsync("/v1/chat/completions", new StringContent(json, Encoding.UTF8, "application/json"),
+                                               default);
+        _launcher.ReleaseStream.TrySetResult();
+        await resp.Content.ReadAsStringAsync();
+        Assert.Equal(json, _launcher.Requests.Single().Body);
+    }
+
+    [Fact]
     public async Task Request_For_Other_Model_Swaps()
     {
         (await _http.PostAsync("/v1/messages", Json(new { model = "alpha" }))).EnsureSuccessStatusCode();

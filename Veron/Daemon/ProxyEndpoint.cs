@@ -13,7 +13,8 @@ namespace Veron.Daemon;
 /// <summary>
 /// Forwards any API request (OpenAI /v1/*, Anthropic /v1/messages, llama.cpp native) to the
 /// llama-server serving the request's "model", loading or swapping it first.
-/// The response is streamed back unchanged (SSE included).
+/// The response is streamed back unchanged (SSE included). Request bodies are forwarded as-is,
+/// except that mid-conversation system messages in /v1/messages are folded (see <see cref="SystemMessageFolder"/>).
 /// </summary>
 public sealed class ProxyEndpoint(IModelRegistry registry, ModelManager manager, HttpClient http, Action<string> log)
 {
@@ -80,6 +81,10 @@ public sealed class ProxyEndpoint(IModelRegistry registry, ModelManager manager,
         catch (ModelLoadException ex) { await WriteErrorAsync(ctx, 503, "api_error", ex.Message); return; }
         catch (OperationCanceledException) { return; } // client went away while waiting
 
+        if (HttpMethods.IsPost(req.Method) && req.Path.StartsWithSegments("/v1/messages") &&
+            SystemMessageFolder.Fold(body, out _) is { } rewritten)
+            body = rewritten;
+
         using (lease)
         {
             using var up = new HttpRequestMessage(new HttpMethod(req.Method), lease.BaseUrl + req.Path + req.QueryString);
@@ -88,6 +93,7 @@ public sealed class ProxyEndpoint(IModelRegistry registry, ModelManager manager,
             foreach (var (key, values) in req.Headers)
             {
                 if (HopByHop.Contains(key)) continue;
+                if (key.Equals("Content-Length", StringComparison.OrdinalIgnoreCase)) continue; // body may be rewritten; ByteArrayContent sets it
                 if (key.StartsWith("Content-", StringComparison.OrdinalIgnoreCase))
                     up.Content?.Headers.TryAddWithoutValidation(key, (IEnumerable<string?>)values);
                 else
