@@ -1,9 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using System.Net.Http;
-using System.Threading.Tasks;
+using System.Globalization;
 
 namespace Veron;
 
@@ -11,50 +9,46 @@ static class LlamaServer
 {
     const string DefaultLlamaServer = "/home/genkop/Workspace/llama-cpp/llama.cpp/build/bin/llama-server";
 
+    /// <summary>llama-server binary: $VERON_LLAMA_SERVER if set, otherwise the built-in default path.</summary>
+    public static string BinaryPath =>
+        Environment.GetEnvironmentVariable("VERON_LLAMA_SERVER") is { Length: > 0 } p ? p : DefaultLlamaServer;
+
+    /// <summary>
+    /// Builds the llama-server command line. The server always binds to 127.0.0.1 —
+    /// clients reach it through the Veron daemon. PARAMETER args come last so they win.
+    /// </summary>
     public static List<string> BuildLlamaCmd(ModelConfig cfg)
     {
         var cmd = new List<string>
         {
-            DefaultLlamaServer,
+            BinaryPath,
             "-m", cfg.ModelPath,
             "--alias", cfg.Alias,
-            "--port", cfg.Port.ToString(),
-            "-c", cfg.Context.ToString(),
-            "-fa", cfg.Fa ? "1" : "0",
-            "--repeat-penalty", cfg.RepeatPenalty.ToString("0.00"),
+            "--host", "127.0.0.1",
+            "--port", cfg.Port.ToString(CultureInfo.InvariantCulture),
+            "-c", cfg.Context.ToString(CultureInfo.InvariantCulture),
+            "-fa", cfg.Fa ? "on" : "off",
+            "--repeat-penalty", cfg.RepeatPenalty.ToString("0.00", CultureInfo.InvariantCulture),
         };
 
         if (cfg.Jinja) cmd.Add("--jinja");
 
-        if (cfg.NGpuLayers.HasValue) { cmd.Add("-ngl"); cmd.Add(cfg.NGpuLayers.Value.ToString()); }
-        if (cfg.BatchSize.HasValue)  { cmd.Add("-b");   cmd.Add(cfg.BatchSize.Value.ToString()); }
+        if (cfg.NGpuLayers.HasValue) { cmd.Add("-ngl"); cmd.Add(cfg.NGpuLayers.Value.ToString(CultureInfo.InvariantCulture)); }
+        if (cfg.BatchSize.HasValue)  { cmd.Add("-b");   cmd.Add(cfg.BatchSize.Value.ToString(CultureInfo.InvariantCulture)); }
 
+        cmd.AddRange(cfg.ExtraArgs);
         return cmd;
     }
 
-    public static ProcessStartInfo ServerPsi(List<string> cmd)
+    /// <summary>ProcessStartInfo for a command list; arguments are passed without shell re-quoting.</summary>
+    public static ProcessStartInfo ToPsi(IReadOnlyList<string> cmd)
     {
-        return new ProcessStartInfo(cmd[0], string.Join(" ", cmd.Skip(1).Select(CliParser.EscapeArg)))
+        var psi = new ProcessStartInfo(cmd[0])
         {
             UseShellExecute = false,
             CreateNoWindow  = true,
         };
-    }
-
-    public static bool WaitForServer(string baseUrl, int timeoutSec)
-    {
-        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
-        var deadline = DateTime.UtcNow.AddSeconds(timeoutSec);
-        while (DateTime.UtcNow < deadline)
-        {
-            try
-            {
-                var r = http.GetAsync(baseUrl + "/health").GetAwaiter().GetResult();
-                if (r.IsSuccessStatusCode) return true;
-            }
-            catch { /* not ready yet */ }
-            Task.Delay(1000).GetAwaiter().GetResult();
-        }
-        return false;
+        for (int i = 1; i < cmd.Count; i++) psi.ArgumentList.Add(cmd[i]);
+        return psi;
     }
 }

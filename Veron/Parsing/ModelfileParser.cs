@@ -8,65 +8,26 @@ namespace Veron;
 static class ModelfileParser
 {
     /// <summary>
-    /// Resolves the modelfile name, parses it, then overlays CLI flags on top.
-    /// </summary>
-    public static ModelConfig LoadConfig(Dictionary<string, string> opts, string modelsDir, out string? mfPath)
-    {
-        string raw = opts.GetValueOrDefault("model")
-                ?? throw new ArgumentNullException("model argument is required for serve/claude/run");
-
-        // Step 1: find the modelfile
-        mfPath = FindModelfile(raw);
-
-        if (mfPath is null)
-            throw new FileNotFoundException("No modelfile found for '" + raw + "' in " + Paths.ModelfilesDir);
-
-        Console.WriteLine("Using modelfile: " + mfPath);
-
-        // Step 2: parse it
-        var cfg = ParseModelfile(mfPath, modelsDir);
-
-        // Step 3: overlay CLI flags (command-line always wins)
-        if (opts.GetValueOrDefault("alias") is string a)   cfg.Alias = a;
-        if (opts.TryGetValue("port", out var v))           cfg.Port    = int.Parse(v);
-        if (opts.TryGetValue("context", out v))            cfg.Context = int.Parse(v);
-
-        // --no-jinja overrides; --jinja is default so no flag needed to set true
-        if (CliParser.OptsBool(opts, "no-jinja"))                    cfg.Jinja   = false;
-        if (CliParser.OptsBool(opts, "no-flash-attention"))          cfg.Fa      = false;
-
-        if (opts.TryGetValue("repeat-penalty", out v))     cfg.RepeatPenalty = float.Parse(v);
-        if (opts.TryGetValue("n-gpu-layers", out v))       cfg.NGpuLayers    = int.Parse(v);
-        if (opts.TryGetValue("batch-size", out v))         cfg.BatchSize     = int.Parse(v);
-        if (opts.TryGetValue("wait", out v))               cfg.Wait          = int.Parse(v);
-
-        // Run command specific flags
-        if (CliParser.OptsBool(opts, "no-color"))                      cfg.Color = false;
-        if (opts.TryGetValue("temperature", out var t))               cfg.Temperature = float.Parse(t);
-        if (opts.TryGetValue("top-p", out var p))                     cfg.TopP = float.Parse(p);
-        if (opts.TryGetValue("prompt", out var pr))                   cfg.Prompt = pr;
-
-        return cfg;
-    }
-
-    /// <summary>
     /// Finds a modelfile in Paths.ModelfilesDir matching the given name.
     /// Tries exact filename first, then strips extension and rechecks,
     /// then tries appending .modelfile.
     /// </summary>
-    public static string? FindModelfile(string name)
+    public static string? FindModelfile(string name) => FindModelfile(name, Paths.ModelfilesDir);
+
+    public static string? FindModelfile(string name, string modelfilesDir)
     {
-        if (!Directory.Exists(Paths.ModelfilesDir)) return null;
+        if (!Directory.Exists(modelfilesDir)) return null;
+        if (name.Contains('/') || name.Contains('\\') || name is "." or "..") return null;
 
         // Exact match (e.g. user types "MiniCPM5-1B-Q4_K_M.modelfile")
-        string exact = Path.Join(Paths.ModelfilesDir, name);
+        string exact = Path.Join(modelfilesDir, name);
         if (File.Exists(exact)) return exact;
 
         // Name without extension (user types "MiniCPM5-1B-Q4_K_M", file could be "MiniCPM5-1B-Q4_K_M" or "MiniCPM5-1B-Q4_K_M.modelfile" or anything)
         string stem = Path.GetFileNameWithoutExtension(name);
 
         // List all files in modelfiles dir and match by stem
-        var files = Directory.GetFiles(Paths.ModelfilesDir, "*", SearchOption.TopDirectoryOnly);
+        var files = Directory.GetFiles(modelfilesDir, "*", SearchOption.TopDirectoryOnly);
         foreach (var f in files)
         {
             string fname = Path.GetFileName(f);
@@ -155,13 +116,17 @@ static class ModelfileParser
             Jinja     = true,
             Fa        = true,
             RepeatPenalty = 1.05f,
-            Wait      = 30,
+            Wait      = 120,
         };
 
-        // Apply PARAMETER directives
+        // Apply top-level PARAMETER directives (those inside TOOL blocks belong to the tool)
+        bool insideTool = false;
         foreach (var rawLine in lines)
         {
             string line = rawLine.Trim();
+            if (line.StartsWith("END_TOOL", StringComparison.OrdinalIgnoreCase)) { insideTool = false; continue; }
+            if (line.StartsWith("TOOL", StringComparison.OrdinalIgnoreCase))     { insideTool = true;  continue; }
+            if (insideTool) continue;
             if (!line.StartsWith("PARAMETER", StringComparison.OrdinalIgnoreCase)) continue;
 
             string rest = line[9..].Trim(); // everything after "PARAMETER"
@@ -262,6 +227,8 @@ static class ModelfileParser
             case "n_gpu_layers":    if (int.TryParse(value, out int n))     cfg.NGpuLayers    = n; break;
             case "batch_size":      if (int.TryParse(value, out int b))     cfg.BatchSize     = b; break;
             case "wait":            if (int.TryParse(value, out int w))     cfg.Wait          = w; break;
+            case "keep_alive":      if (KeepAlive.TryParse(value, out var k)) cfg.KeepAlive   = k; break;
+            case "args":            cfg.ExtraArgs.AddRange(ArgSplitter.Split(value)); break; // multiple lines accumulate
         }
     }
 }

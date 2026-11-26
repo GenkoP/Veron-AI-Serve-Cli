@@ -19,5 +19,5 @@ public static class ProgramTestHelper
     }
 
     public static List<string> BuildLlamaCmd(ModelConfig cfg) =>
-        LlamaCli.BuildLlamaCmd(cfg);
+        LlamaServer.BuildLlamaCmd(cfg);
 }

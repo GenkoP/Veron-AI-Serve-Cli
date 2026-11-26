@@ -39,15 +39,19 @@ static class CmdRemove
             }
         }
 
-        if (StateManager.IsServerRunning(modelName))
+        // Unload it from the Veron server first, if it is loaded there
+        var client = Veron.Daemon.DaemonClient.Default();
+        if (client.IsRunning())
         {
-            Console.WriteLine("Stopping llama-server for " + modelName + " ...");
-            StateManager.StopServer(modelName);
+            try
+            {
+                foreach (var name in client.Unload(Path.GetFileName(mfPath)))
+                    Console.WriteLine("Unloaded " + name + ".");
+            }
+            catch (Veron.Daemon.DaemonException ex) { Console.Error.WriteLine("Warning: " + ex.Message); }
         }
 
         File.Delete(mfPath);
         Console.WriteLine("Removed profile '" + modelName + "' (" + mfPath + ")");
-
-        StateManager.DeleteState(modelName);
     }
 }

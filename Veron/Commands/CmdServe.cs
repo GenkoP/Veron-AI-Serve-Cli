@@ -1,75 +1,63 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.IO;
+using Veron.Daemon;
 
 namespace Veron;
 
+/// <summary>
+/// `veron serve [name]` — runs the Veron server in the foreground. Models load on demand when a
+/// request names them. With a name, that model is preloaded; if the server is already running,
+/// only the preload happens.
+/// </summary>
 static class CmdServe
 {
     public static void Run(Dictionary<string, string> opts, string modelsDir)
     {
-        var cfg = ModelfileParser.LoadConfig(opts, modelsDir, out _);
+        string? preload = opts.GetValueOrDefault("model");
 
-        // The model profile name is what the user typed (e.g., "qwopus")
-        string modelName = opts.GetValueOrDefault("model") ?? throw new ArgumentNullException("model argument required");
-
-        // Check if server is already running for this model
-        if (StateManager.IsServerRunning(modelName))
+        var (host, port) = DaemonAddress.FromEnvironment();
+        if (opts.GetValueOrDefault("host") is { Length: > 0 } h) host = h;
+        if (opts.TryGetValue("port", out var p))
         {
-            var existing = StateManager.GetState(modelName);
-            Console.WriteLine("Server for " + modelName + " is already running (PID " +
-                existing!.Pid + ", port " + existing.Port + ")");
+            if (!int.TryParse(p, out port) || port is <= 0 or > 65535)
+                Exit("invalid --port '" + p + "'");
+        }
+
+        var keepAlive = KeepAlive.Default;
+        if (opts.TryGetValue("keep-alive", out var k) && !KeepAlive.TryParse(k, out keepAlive))
+            Exit("invalid --keep-alive '" + k + "' (examples: 5m, 30s, 1h, 0, -1)");
+
+        if (preload is not null && ModelfileParser.FindModelfile(preload) is null)
+            Exit("no modelfile found for '" + preload + "' in " + Paths.ModelfilesDir);
+
+        var client = new DaemonClient(host, port);
+        if (client.IsRunning())
+        {
+            if (preload is null)
+            {
+                Console.WriteLine("Veron server is already running at " + client.BaseUrl);
+                return;
+            }
+            Console.WriteLine("Veron server is already running — loading " + preload + " ...");
+            try { client.Load(preload); }
+            catch (DaemonException ex) { Exit(ex.Message); }
+            Console.WriteLine(preload + " is ready at " + client.BaseUrl);
             return;
         }
 
-        var cmd = LlamaServer.BuildLlamaCmd(cfg);
-
-        Console.WriteLine("Starting llama-server for " + cfg.Alias + " on port " + cfg.Port + " …");
-        Console.WriteLine("  Command: " + string.Join(" ", cmd.Select(CliParser.EscapeArg)));
-
-        var psi = LlamaServer.ServerPsi(cmd);
-        var proc = Process.Start(psi)
-                ?? throw new InvalidOperationException("Failed to start llama-server");
-
-        // Write server state file
-        string fromName = Path.GetFileNameWithoutExtension(cfg.ModelPath);
-        var serverState = new ServerState
+        int code = DaemonHost.RunForeground(new DaemonOptions
         {
-            Model = modelName,
-            From = fromName,
-            Port = cfg.Port,
-            Context = cfg.Context,
-            Pid = proc.Id,
-            StartedAt = DateTime.UtcNow
-        };
-        StateManager.WriteState(serverState);
+            Host      = host,
+            Port      = port,
+            KeepAlive = keepAlive,
+            ModelsDir = modelsDir,
+        }, preload);
+        if (code != 0) Environment.Exit(code);
+    }
 
-        // Also write the legacy PID file for backward compatibility
-        PidManager.WritePid(proc.Id);
-
-        string baseUrl = "http://localhost:" + cfg.Port;
-
-        if (LlamaServer.WaitForServer(baseUrl, cfg.Wait))
-            Console.WriteLine("Server is ready at " + baseUrl);
-        else
-            Console.Error.WriteLine("Warning: server did not respond within " + cfg.Wait + "s");
-
-        try { proc.WaitForExit(); }
-        catch (OperationCanceledException) { } // Ctrl+C
-        finally
-        {
-            if (!proc.HasExited)
-            {
-                Console.WriteLine("\nShutting down …");
-                proc.Kill(true);
-                Console.WriteLine("Stopped.");
-            }
-
-            // Clean up state on exit
-            StateManager.DeleteState(modelName);
-            PidManager.DeletePid();
-        }
+    static void Exit(string message)
+    {
+        Console.Error.WriteLine("Error: " + message);
+        Environment.Exit(1);
     }
 }

@@ -14,72 +14,37 @@ static class CmdHelp
         ["ls"] = new("ls", "List all available modelfiles", "veron ls", Array.Empty<string>()),
         ["list"] = new("ls", "List all available modelfiles", "veron ls", Array.Empty<string>()),
         ["create"] = new("create", "Create a profile from a modelfile", "veron create <name> <path>", Array.Empty<string>()),
-        ["serve"] = new("serve", "Start llama-server with the given model profile (foreground)", "veron serve <name> [options]", new[]
+        ["serve"] = new("serve", "Run the Veron server (foreground); models load on demand", "veron serve [name] [options]", new[]
         {
-            "--alias <name>       Alias for the server (overwrites modelfile)",
-            "--port <n>           Port (default: 5570)",
-            "--context <n>        Context size (default: 128000)",
-            "--jinja              Use Jinja template (default: on)",
-            "--no-jinja           Disable Jinja template",
-            "--flash-attention    Enable flash attention (default: on)",
-            "--no-flash-attention Disable flash attention",
-            "--repeat-penalty <f> Repeat penalty (default: 1.05)",
-            "--n-gpu-layers <n>   GPU layers to offload",
-            "--batch-size <n>     Batch size",
-            "--wait <n>           Seconds to wait for server readiness (default: 30)",
+            "[name]               Preload this profile (if the server already runs, only preload it)",
+            "--host <addr>        Listen address (default: 127.0.0.1, or $VERON_HOST)",
+            "--port <n>           Listen port (default: 11435, or $VERON_HOST)",
+            "--keep-alive <dur>   Unload idle models after this time: 5m, 30s, 1h, 0, -1 = never (default: 5m)",
         }),
-        ["claude"] = new("claude", "Start llama-server then launch claude code", "veron claude <name> [options]", new[]
+        ["claude"] = new("claude", "Launch claude code on a local model (via the Veron server)", "veron claude <name> [options]", new[]
         {
-            "--alias <name>       Alias for the server (overwrites modelfile)",
-            "--port <n>           Port (default: 5570)",
-            "--context <n>        Context size (default: 128000)",
-            "--jinja              Use Jinja template (default: on)",
-            "--no-jinja           Disable Jinja template",
-            "--flash-attention    Enable flash attention (default: on)",
-            "--no-flash-attention Disable flash attention",
-            "--repeat-penalty <f> Repeat penalty (default: 1.05)",
-            "--n-gpu-layers <n>   GPU layers to offload",
-            "--batch-size <n>     Batch size",
-            "--wait <n>           Seconds to wait for server readiness (default: 30)",
-            "--foreground         Start llama-server in a new terminal window",
+            "--claude-bin <path>  Claude Code binary (default: claude)",
         }),
-        ["copilot"] = new("copilot", "Start llama-server then launch copilot", "veron copilot <name> [options]", new[]
+        ["copilot"] = new("copilot", "Launch copilot on a local model (via the Veron server)", "veron copilot <name> [options]", new[]
         {
-            "--alias <name>       Alias for the server (overwrites modelfile)",
-            "--port <n>           Port (default: 5570)",
-            "--context <n>        Context size (default: 128000)",
-            "--jinja              Use Jinja template (default: on)",
-            "--no-jinja           Disable Jinja template",
-            "--flash-attention    Enable flash attention (default: on)",
-            "--no-flash-attention Disable flash attention",
-            "--repeat-penalty <f> Repeat penalty (default: 1.05)",
-            "--n-gpu-layers <n>   GPU layers to offload",
-            "--batch-size <n>     Batch size",
-            "--wait <n>           Seconds to wait for server readiness (default: 30)",
             "--prompt <text>      Execute a prompt in non-interactive mode (exits after completion)",
+            "--copilot-bin <path> Copilot CLI binary (default: copilot)",
         }),
-        ["run"] = new("run", "Run llama-cli interactively with the given model profile", "veron run <name> [options]", new[]
+        ["run"] = new("run", "Chat with a model in the terminal (via the Veron server)", "veron run <name> [options]", new[]
         {
-            "--n-gpu-layers <n>   GPU layers to offload (default: -1 = full)",
-            "--flash-attention    Enable flash attention (default: on)",
-            "--no-flash-attention Disable flash attention",
-            "--jinja              Use Jinja template (default: on)",
-            "--no-jinja           Disable Jinja template",
-            "--color              Enable colored output (default: on)",
-            "--no-color           Disable colored output",
-            "--temperature <f>    Temperature (default: 0.8)",
-            "--top-p <f>          Top-p sampling (default: 0.9)",
-            "--repeat-penalty <f> Repeat penalty (default: 1.1)",
-            "--context <n>        Context size",
             "--prompt <text>      One-shot prompt, exit after response",
+            "--temperature <f>    Sampling temperature (default: server/model default)",
+            "--top-p <f>          Top-p sampling (default: server/model default)",
+            "--no-color           Do not dim reasoning output",
         }),
-        ["ps"] = new("ps", "List currently running servers", "veron ps", Array.Empty<string>()),
-        ["stop"] = new("stop", "Stop a specific server, or all if no name given", "veron stop [name]", Array.Empty<string>()),
-        ["remove"] = new("remove", "Remove a model profile (stops server if running)", "veron remove <name>", new[]
+        ["ps"] = new("ps", "List models loaded by the Veron server", "veron ps", Array.Empty<string>()),
+        ["stop"] = new("stop", "Unload a model, or all models if no name given", "veron stop [name]", Array.Empty<string>()),
+        ["shutdown"] = new("shutdown", "Stop the Veron server (unloads all models)", "veron shutdown", Array.Empty<string>()),
+        ["remove"] = new("remove", "Remove a model profile (unloads it if loaded)", "veron remove <name>", new[]
         {
             "-f, --force       Skip confirmation prompt",
         }),
-        ["rm"] = new("remove", "Remove a model profile (stops server if running)", "veron remove <name>", new[]
+        ["rm"] = new("remove", "Remove a model profile (unloads it if loaded)", "veron remove <name>", new[]
         {
             "-f, --force       Skip confirmation prompt",
         }),
@@ -93,12 +58,13 @@ static class CmdHelp
         ("cat <name>", "Show raw modelfile content"),
         ("ls, list", "List all available modelfiles"),
         ("create <name> <path>", "Create a profile from a modelfile"),
-        ("serve <name>", "Start llama-server with the given model profile (foreground)"),
-        ("claude <name>", "Start llama-server then launch claude code"),
-        ("copilot <name>", "Start llama-server then launch copilot"),
-        ("run <name>", "Run llama-cli interactively with the given model profile"),
-        ("ps", "List currently running servers"),
-        ("stop [name]", "Stop a specific server, or all if no name given"),
+        ("serve [name]", "Run the Veron server (foreground); models load on demand"),
+        ("claude <name>", "Launch claude code on a local model"),
+        ("copilot <name>", "Launch copilot on a local model"),
+        ("run <name>", "Chat with a model in the terminal"),
+        ("ps", "List loaded models"),
+        ("stop [name]", "Unload a model, or all models if no name given"),
+        ("shutdown", "Stop the Veron server"),
         ("remove, rm <name>", "Remove a model profile"),
         ("help", "Show this help message"),
         ("version", "Show version information"),
@@ -167,6 +133,10 @@ COMMANDS".TrimStart());
         Console.WriteLine(@"
 GLOBAL OPTIONS
   --models-dir <dir>   Directory containing GGUF files
+
+ENVIRONMENT
+  VERON_HOST           Veron server address (default: 127.0.0.1:11435)
+  VERON_LLAMA_SERVER   Path to the llama-server binary
 
 For more on a command: veron <command> --help".TrimStart());
     }

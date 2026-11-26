@@ -13,7 +13,8 @@ static class ModelfileValidator
     static readonly HashSet<string> KnownParams = new()
     {
         "alias", "port", "context", "jinja", "flash_attention",
-        "repeat_penalty", "n_gpu_layers", "batch_size", "wait"
+        "repeat_penalty", "n_gpu_layers", "batch_size", "wait",
+        "keep_alive", "args"
     };
 
     static string ParameterExpectedType(string key) => key switch
@@ -22,6 +23,8 @@ static class ModelfileValidator
         "jinja" or "flash_attention" => "boolean",
         "repeat_penalty" => "float",
         "port" or "context" or "n_gpu_layers" or "batch_size" or "wait" => "integer",
+        "keep_alive" => "duration (e.g. 5m, 30s, 1h, 0, -1)",
+        "args" => "argument list (check quoting)",
         _ => "value"
     };
 
@@ -33,8 +36,16 @@ static class ModelfileValidator
             "jinja" or "flash_attention" => bool.TryParse(value, out _),
             "repeat_penalty" => float.TryParse(value, out _),
             "port" or "context" or "n_gpu_layers" or "batch_size" or "wait" => int.TryParse(value, out _),
+            "keep_alive" => KeepAlive.TryParse(value, out _),
+            "args" => IsValidArgs(value),
             _ => true // unknown keys already rejected before this point
         };
+    }
+
+    static bool IsValidArgs(string value)
+    {
+        try { return ArgSplitter.Split(value).Count > 0; }
+        catch (FormatException) { return false; }
     }
 
     public static List<string> ValidateModelfile(string sourcePath, string name, string modelsDir)
@@ -133,7 +144,7 @@ static class ModelfileValidator
                 // Check for unknown keys
                 if (!KnownParams.Contains(key))
                 {
-                    errors.Add($"Error: unknown parameter key: \"{key}\" (did you mean one of: alias, port, context, jinja, flash_attention, repeat_penalty, n_gpu_layers, batch_size, wait?)");
+                    errors.Add($"Error: unknown parameter key: \"{key}\" (did you mean one of: alias, port, context, jinja, flash_attention, repeat_penalty, n_gpu_layers, batch_size, wait, keep_alive, args?)");
                     return errors;
                 }
 

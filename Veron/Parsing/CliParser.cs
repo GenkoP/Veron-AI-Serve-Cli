@@ -28,6 +28,8 @@ static class CliParser
                 continue;
             }
 
+            if (args[i] == "-f") { dict["force"] = "true"; continue; } // short form of --force
+
             if (!args[i].StartsWith("--")) continue;
 
             string key = args[i][2..];

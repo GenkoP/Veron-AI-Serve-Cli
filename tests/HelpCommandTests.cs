@@ -10,7 +10,7 @@ public class HelpCommandTests
     [Fact]
     public void CmdHelp_Has_Entries_For_All_Commands()
     {
-        var commands = new[] { "cat", "ls", "list", "create", "serve", "claude", "copilot", "run", "ps", "stop", "remove", "rm", "help", "version" };
+        var commands = new[] { "cat", "ls", "list", "create", "serve", "claude", "copilot", "run", "ps", "stop", "shutdown", "remove", "rm", "help", "version" };
 
         foreach (var cmd in commands)
         {
@@ -26,8 +26,8 @@ public class HelpCommandTests
 
         var options = entry!.Value.Options;
         Assert.Contains(options, o => o.StartsWith("--port"));
-        Assert.Contains(options, o => o.StartsWith("--context"));
-        Assert.Contains(options, o => o.StartsWith("--alias"));
+        Assert.Contains(options, o => o.StartsWith("--host"));
+        Assert.Contains(options, o => o.StartsWith("--keep-alive"));
     }
 
     [Fact]
@@ -113,7 +113,7 @@ public class HelpCommandTests
 
         string output = sw.ToString();
         Assert.Contains("--port", output);
-        Assert.Contains("--context", output);
-        Assert.Contains("--alias", output);
+        Assert.Contains("--host", output);
+        Assert.Contains("--keep-alive", output);
     }
 }

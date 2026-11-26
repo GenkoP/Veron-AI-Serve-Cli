@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+
 namespace Veron;
 
 public class ModelConfig
@@ -11,11 +14,18 @@ public class ModelConfig
     public float   RepeatPenalty { get; set; } = 1.05f;
     public int?    NGpuLayers    { get; set; }
     public int?    BatchSize     { get; set; }
-    public int     Wait          { get; set; } = 30;
+    public int     Wait          { get; set; } = 120;
 
-    // New fields for 'run' command
-    public bool?   Color         { get; set; } = true;
-    public float?  Temperature   { get; set; }
-    public float?  TopP          { get; set; }
-    public string? Prompt        { get; set; }
+    /// <summary>Extra llama-server arguments from <c>PARAMETER args</c> (appended verbatim).</summary>
+    public List<string> ExtraArgs { get; set; } = new();
+
+    /// <summary>Per-profile idle unload time from <c>PARAMETER keep_alive</c>; null = daemon default.</summary>
+    public TimeSpan? KeepAlive   { get; set; }
+
+    public ModelConfig Clone()
+    {
+        var copy = (ModelConfig)MemberwiseClone();
+        copy.ExtraArgs = new List<string>(ExtraArgs);
+        return copy;
+    }
 }

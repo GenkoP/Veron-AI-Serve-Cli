@@ -2,6 +2,8 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Veron.Tests" />
+    <!-- Kestrel for the Veron server (shared framework, no NuGet download) -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
   <PropertyGroup>

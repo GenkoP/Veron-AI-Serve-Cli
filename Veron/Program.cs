@@ -64,6 +64,7 @@ public static class Program
             case "run":     CmdRun.Run(opts, modelsDir); break;
             case "copilot": CmdCopilot.Run(opts, modelsDir); break;
             case "stop":    CmdStop.Run(opts); break;
+            case "shutdown": CmdStop.Shutdown(); break;
             case "ps":        CmdPs.Run(); break;
             case "remove":
             case "rm":        CmdRemove.Run(opts, modelsDir); break;

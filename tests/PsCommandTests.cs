@@ -5,11 +5,26 @@ namespace Veron.Tests;
 
 public class PsCommandTests
 {
+    static Veron.Daemon.ModelStatus Status(DateTimeOffset? expires, bool forever = false, int active = 0, int sessions = 0) =>
+        new("m", "m.gguf", 1, 1234, 4096, DateTimeOffset.Now, expires, forever, active, sessions, "/tmp/m.log");
+
     [Fact]
-    public void ListRunningServers_Returns_Empty_When_Nothing_Running()
+    public void FormatUntil_Shows_Minutes_Left()
     {
-        var servers = StateManager.ListRunningServers();
-        Assert.Empty(servers);
+        var now = DateTimeOffset.Now;
+        Assert.Equal("4 minutes from now", CmdPs.FormatUntil(Status(now.AddMinutes(4)), now));
+        Assert.Equal("1 minute from now", CmdPs.FormatUntil(Status(now.AddSeconds(70)), now));
+        Assert.Equal("30 seconds from now", CmdPs.FormatUntil(Status(now.AddSeconds(30)), now));
+    }
+
+    [Fact]
+    public void FormatUntil_Special_States()
+    {
+        var now = DateTimeOffset.Now;
+        Assert.Equal("Forever", CmdPs.FormatUntil(Status(null, forever: true), now));
+        Assert.Equal("In use (2 sessions)", CmdPs.FormatUntil(Status(null, sessions: 2), now));
+        Assert.Equal("In use (1 session)", CmdPs.FormatUntil(Status(null, sessions: 1), now));
+        Assert.Equal("Busy", CmdPs.FormatUntil(Status(null, active: 1), now));
     }
 
     [Fact]
