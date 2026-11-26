@@ -80,6 +80,6 @@ public static class Program
 
     static void PrintVersion()
     {
-        Console.WriteLine("veron 1.0.0");
+        Console.WriteLine("veron 1.1.0");
     }
 }
