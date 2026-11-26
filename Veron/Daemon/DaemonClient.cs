@@ -144,6 +144,13 @@ public sealed class DaemonClient
         return doc.RootElement.Deserialize<List<ModelStatus>>(Json) ?? new();
     }
 
+    public StatsSnapshot Stats()
+    {
+        var doc = Send(HttpMethod.Get, "/veron/stats", null, TimeSpan.FromSeconds(5));
+        return doc.RootElement.Deserialize<StatsSnapshot>(Json)
+            ?? throw new DaemonException("Empty stats response from the Veron server");
+    }
+
     public string OpenSession(string model, int pid)
     {
         var doc = Send(HttpMethod.Post, "/veron/sessions", new { model, pid }, TimeSpan.FromMinutes(30));

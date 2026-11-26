@@ -48,6 +48,7 @@ public static class DaemonHost
         var app   = builder.Build();
         var http  = ProxyEndpoint.CreateHttpClient();
         var proxy = new ProxyEndpoint(registry, manager, http, log);
+        var stats = new StatsCollector(manager);
 
         app.MapGet("/health", () => Results.Json(new { status = "ok", service = "veron" }));
 
@@ -65,6 +66,12 @@ public static class DaemonHost
         }));
 
         app.MapGet("/veron/ps", () => Results.Json(manager.Status()));
+
+        app.MapGet("/veron/stats", async (HttpContext ctx) =>
+        {
+            var snap = await stats.GetAsync(ctx.RequestAborted);
+            return Results.Json(snap);
+        });
 
         app.MapPost("/veron/load", async (ModelRequest req, HttpContext ctx) =>
         {
@@ -135,6 +142,7 @@ public static class DaemonHost
             log("stopping — unloading models");
             manager.Dispose();
             http.Dispose();
+            stats.Dispose();
         });
 
         return app;
