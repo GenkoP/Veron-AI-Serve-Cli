@@ -85,6 +85,20 @@ public sealed class DaemonClient
         catch { return false; }
     }
 
+    /// <summary>The version the daemon reports in /health; null when unreachable or when it predates versioning.</summary>
+    public string? DaemonVersion()
+    {
+        try
+        {
+            using var http = Http(TimeSpan.FromSeconds(1));
+            using var r = http.GetAsync("/health").GetAwaiter().GetResult();
+            if (!r.IsSuccessStatusCode) return null;
+            using var doc = JsonDocument.Parse(r.Content.ReadAsStringAsync().GetAwaiter().GetResult());
+            return doc.RootElement.TryGetProperty("version", out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+        }
+        catch { return null; }
+    }
+
     /// <summary>Starts the daemon in the background (detached) unless it is already running.</summary>
     public void EnsureRunning(string modelsDir)
     {
@@ -142,6 +156,13 @@ public sealed class DaemonClient
     {
         var doc = Send(HttpMethod.Get, "/veron/ps", null, TimeSpan.FromSeconds(10));
         return doc.RootElement.Deserialize<List<ModelStatus>>(Json) ?? new();
+    }
+
+    public StatsSnapshot Stats()
+    {
+        var doc = Send(HttpMethod.Get, "/veron/stats", null, TimeSpan.FromSeconds(5));
+        return doc.RootElement.Deserialize<StatsSnapshot>(Json)
+            ?? throw new DaemonException("Empty stats response from the Veron server");
     }
 
     public string OpenSession(string model, int pid)

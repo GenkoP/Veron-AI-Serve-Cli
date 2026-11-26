@@ -110,11 +110,21 @@ veron serve qwopus --keep-alive 30m
 | `copilot <name>` | — | Load the model, launch Copilot CLI against it, unload when Copilot exits |
 | `run <name>` | — | Chat with the model in the terminal (`/bye` exits, `/clear` resets, Ctrl+C stops an answer) |
 | `ps` | — | List loaded models and when they unload |
+| `stats [--watch]` | — | Show live stats of the loaded model (see [Live stats](#live-stats)) |
 | `stop [name]` | — | Unload a model, or all models if no name given |
 | `shutdown` | — | Stop the Veron server (unloads everything) |
 | `remove <name>` | `rm` | Remove a model profile (unloads it if loaded) |
 | `help` | `h` | Show help message |
 | `version` | `v` | Show version information |
+
+## Live stats
+
+`veron stats` prints a snapshot: the loaded model, what the slot is doing (idle, processing the prompt, generating),
+context usage, and a table of the last 10 finished requests (prompt/output tokens and t/s, speculative draft acceptance).
+
+`veron stats --watch` (also `-w` or `watch`) redraws about twice a second until Ctrl+C, with a live output t/s.
+If stdout is not a terminal it prints one line per finished request instead. If the server goes away it keeps
+waiting and resumes when it is back.
 
 ## Global Options
 

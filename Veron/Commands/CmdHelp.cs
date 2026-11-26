@@ -38,6 +38,10 @@ static class CmdHelp
             "--no-color           Do not dim reasoning output",
         }),
         ["ps"] = new("ps", "List models loaded by the Veron server", "veron ps", Array.Empty<string>()),
+        ["stats"] = new("stats", "Show live stats of the loaded model and recent requests", "veron stats [--watch]", new[]
+        {
+            "-w, --watch, watch   Redraw ~2x/s until Ctrl+C (one line per finished request when piped)",
+        }),
         ["stop"] = new("stop", "Unload a model, or all models if no name given", "veron stop [name]", Array.Empty<string>()),
         ["shutdown"] = new("shutdown", "Stop the Veron server (unloads all models)", "veron shutdown", Array.Empty<string>()),
         ["remove"] = new("remove", "Remove a model profile (unloads it if loaded)", "veron remove <name>", new[]
@@ -63,6 +67,7 @@ static class CmdHelp
         ("copilot <name>", "Launch copilot on a local model"),
         ("run <name>", "Chat with a model in the terminal"),
         ("ps", "List loaded models"),
+        ("stats [--watch]", "Show live stats and recent requests"),
         ("stop [name]", "Unload a model, or all models if no name given"),
         ("shutdown", "Stop the Veron server"),
         ("remove, rm <name>", "Remove a model profile"),

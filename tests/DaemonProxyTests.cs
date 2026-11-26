@@ -28,16 +28,25 @@ sealed class FakeLlamaServerLauncher : ILlamaLauncher
     public TaskCompletionSource SlowRequestAborted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public TaskCompletionSource ReleaseStream { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public bool FailStartup { get; set; }
+    public string? SlotsJson { get; set; }
+    public string? LogText { get; set; }
 
     public ILlamaProcess Start(ResolvedModel model, int port, string logPath)
     {
         Started.Enqueue(model.Name);
+        if (LogText is not null)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
+            File.WriteAllText(logPath, LogText);
+        }
         var builder = WebApplication.CreateSlimBuilder();
         builder.Logging.ClearProviders();
         builder.WebHost.UseUrls("http://127.0.0.1:" + port);
         var app = builder.Build();
 
         app.MapGet("/health", () => FailStartup ? Results.StatusCode(503) : Results.Ok(new { status = "ok" }));
+
+        app.MapGet("/slots", () => Results.Text(SlotsJson ?? "[]", "application/json"));
 
         // streams 3 SSE events; the last one only after the test releases it
         app.MapPost("/v1/chat/completions", async (HttpContext ctx) =>
@@ -131,10 +140,60 @@ public sealed class DaemonProxyTests : IAsyncLifetime
     static StringContent Json(object o) => new(JsonSerializer.Serialize(o), Encoding.UTF8, "application/json");
 
     [Fact]
+    public async Task Stats_Endpoint_Reports_Nothing_Loaded_Then_Slot_And_Recent()
+    {
+        var idle = await _http.GetFromJsonAsync<StatsSnapshot>("/veron/stats", new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        Assert.Null(idle!.Model);
+
+        _launcher.SlotsJson = "[{\"id\":0,\"n_ctx\":8192,\"is_processing\":false,\"n_prompt_tokens\":5,\"n_prompt_tokens_processed\":5,\"n_prompt_tokens_cache\":0,\"next_token\":[{\"n_decoded\":3}]}]";
+        _launcher.LogText =
+            "0.00.100.000 I slot print_timing: id  0 | task 1 | prompt eval time =     100.00 ms /    35 tokens (    2.86 ms per token,   350.00 tokens per second)\n" +
+            "0.00.100.001 I slot print_timing: id  0 | task 1 |        eval time =    1000.00 ms /   512 tokens (    1.95 ms per token,   512.00 tokens per second)\n" +
+            "0.00.100.002 I slot print_timing: id  0 | task 1 | draft acceptance = 0.50000 (  1 accepted /   2 generated), mean len =  2.90\n";
+        using var resp = await _http.PostAsync("/v1/chat/completions", Json(new { model = "alpha", messages = Array.Empty<object>() }));
+        _launcher.ReleaseStream.TrySetResult();
+        await resp.Content.ReadAsStringAsync();
+
+        var s = await _http.GetFromJsonAsync<StatsSnapshot>("/veron/stats", new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        Assert.Equal("alpha", s!.Model);
+        Assert.Equal("alpha.gguf", s.From);
+        Assert.Equal(new SlotSnapshot(false, 5, 5, 0, 3, 8192), s.Slot);
+        var r = Assert.Single(s.Recent);
+        Assert.Equal(35, r.PromptTokens);
+        Assert.Equal(512, r.OutputTokens);
+        Assert.Equal(0.5, r.DraftAcceptance!.Value, 3);
+    }
+
+    [Fact]
+    public async Task DaemonClient_Stats_Deserializes_Snapshot()
+    {
+        var uri = new Uri(_app.Urls.First());
+        var snap = await Task.Run(() => new DaemonClient(uri.Host, uri.Port).Stats());
+        Assert.Null(snap.Model);
+        Assert.Empty(snap.Recent);
+    }
+
+    [Fact]
     public async Task Health_Identifies_Veron()
     {
         var doc = await _http.GetFromJsonAsync<JsonElement>("/health");
         Assert.Equal("veron", doc.GetProperty("service").GetString());
+        Assert.Equal(Program.Version, doc.GetProperty("version").GetString());
+        var uri = new Uri(_app.Urls.First());
+        Assert.Equal(Program.Version, await Task.Run(() => new DaemonClient(uri.Host, uri.Port).DaemonVersion()));
+    }
+
+    [Theory]
+    [InlineData("GET")]
+    [InlineData("POST")]
+    public async Task Unknown_Veron_Path_Is_404_And_Never_Reaches_Upstream(string method)
+    {
+        await _manager.AcquireAsync(_profiles.Registry().Resolve("alpha")!, default).ContinueWith(t => t.Result.Dispose());
+        using var resp = await _http.SendAsync(new HttpRequestMessage(new HttpMethod(method), "/veron/xyz"));
+        Assert.Equal(HttpStatusCode.NotFound, resp.StatusCode);
+        var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+        Assert.Equal("not_found", doc.RootElement.GetProperty("error").GetProperty("type").GetString());
+        Assert.Empty(_launcher.Requests);
     }
 
     [Fact]
