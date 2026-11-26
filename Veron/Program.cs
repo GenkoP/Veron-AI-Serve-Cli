@@ -66,6 +66,7 @@ public static class Program
             case "stop":    CmdStop.Run(opts); break;
             case "shutdown": CmdStop.Shutdown(); break;
             case "ps":        CmdPs.Run(); break;
+            case "stats":     CmdStats.Run(rawArgs[1..]); break;
             case "remove":
             case "rm":        CmdRemove.Run(opts, modelsDir); break;
             default:         PrintUsage(); Environment.Exit(1); break;
@@ -80,6 +81,6 @@ public static class Program
 
     static void PrintVersion()
     {
-        Console.WriteLine("veron 1.1.0");
+        Console.WriteLine("veron 1.2.0");
     }
 }
