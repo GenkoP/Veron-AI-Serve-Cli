@@ -53,7 +53,7 @@ static class CmdHelp
             "-f, --force       Skip confirmation prompt",
         }),
         ["help"] = new("help", "Show this help message", "veron help", Array.Empty<string>()),
-        ["version"] = new("version", "Show version information", "veron version", Array.Empty<string>()),
+        ["version"] = new("version", "Show Veron and llama.cpp versions", "veron version", Array.Empty<string>()),
     };
 
     // Canonical command list for top-level help display (with aliases shown)
@@ -72,7 +72,7 @@ static class CmdHelp
         ("shutdown", "Stop the Veron server"),
         ("remove, rm <name>", "Remove a model profile"),
         ("help", "Show this help message"),
-        ("version", "Show version information"),
+        ("version", "Show Veron and llama.cpp versions"),
     ];
 
     // ── Public API ───────────────────────────────────────────────────────────

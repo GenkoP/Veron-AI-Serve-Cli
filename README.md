@@ -132,7 +132,7 @@ veron serve qwopus --keep-alive 30m
 | `shutdown` | — | Stop the Veron server (unloads everything) |
 | `remove <name>` | `rm` | Remove a model profile (unloads it if loaded) |
 | `help` | `h` | Show help message |
-| `version` | `v` | Show version information |
+| `version` | `v` | Show the Veron version and the llama.cpp version of the `llama-server` binary it uses |
 
 ## Live stats
 
