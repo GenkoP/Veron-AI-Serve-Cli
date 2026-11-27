@@ -5,7 +5,7 @@ namespace Veron;
 
 public static class Program
 {
-    public const string Version = "1.3.0";
+    public const string Version = "1.3.1";
     const string DefaultModelsDir   = "/home/genkop/Workspace/llama-cpp/models";
 
     // ── Entry point ────────────────────────────────────────────────────────
@@ -82,6 +82,14 @@ public static class Program
 
     static void PrintVersion()
     {
-        Console.WriteLine("veron " + Version);
+        string bin = LlamaServer.BinaryPath;
+        Console.WriteLine(FormatVersion(LlamaServer.QueryVersion(bin), bin));
     }
+
+    /// <summary>Text of <c>veron version</c>: the Veron version, then the llama.cpp version and binary used to serve models.</summary>
+    internal static string FormatVersion(string? llamaVersion, string llamaBinary) =>
+        "veron " + Version + "\n" +
+        (llamaVersion is not null
+            ? "llama.cpp " + llamaVersion + "\n  " + llamaBinary
+            : "llama.cpp unknown: cannot get a version from " + llamaBinary + " (set VERON_LLAMA_SERVER to the llama-server binary)");
 }

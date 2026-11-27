@@ -40,6 +40,49 @@ static class LlamaServer
         return cmd;
     }
 
+    /// <summary>
+    /// Runs <c>&lt;binary&gt; --version</c> and returns its version text, e.g. "1.1.0-dev (build 12815, commit 2a8bf0f59)".
+    /// Null if the binary cannot be started, does not finish within <paramref name="timeoutMs"/>, or prints no version line.
+    /// </summary>
+    public static string? QueryVersion(string binary, int timeoutMs = 5000)
+    {
+        try
+        {
+            var psi = ToPsi(new[] { binary, "--version" });
+            psi.RedirectStandardOutput = true;
+            psi.RedirectStandardError  = true;
+            using var p = Process.Start(psi);
+            if (p is null) return null;
+
+            // llama.cpp prints the version to stderr; read both streams so neither pipe can block the child
+            var stdout = p.StandardOutput.ReadToEndAsync();
+            var stderr = p.StandardError.ReadToEndAsync();
+            if (!p.WaitForExit(timeoutMs))
+            {
+                try { p.Kill(entireProcessTree: true); } catch (InvalidOperationException) { }
+                return null;
+            }
+            return ParseVersion(stdout.Result + "\n" + stderr.Result);
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>The text after "version:" in llama.cpp's <c>--version</c> output, or null if there is none.</summary>
+    public static string? ParseVersion(string output)
+    {
+        foreach (var raw in output.Split('\n'))
+        {
+            string line = raw.Trim();
+            if (!line.StartsWith("version:", StringComparison.Ordinal)) continue;
+            string v = line["version:".Length..].Trim();
+            return v.Length > 0 ? v : null;
+        }
+        return null;
+    }
+
     /// <summary>ProcessStartInfo for a command list; arguments are passed without shell re-quoting.</summary>
     public static ProcessStartInfo ToPsi(IReadOnlyList<string> cmd)
     {
