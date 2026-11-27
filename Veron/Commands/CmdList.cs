@@ -50,11 +50,12 @@ static class CmdList
 
                 try
                 {
-                    long bytes = new FileInfo(fullPath).Length;
-                    double gb = bytes / (1024.0 * 1024.0 * 1024.0);
-                    size = $"{gb:F1} GB";
+                    // split GGUFs count all shards, not just the metadata-only first one
+                    long? bytes = ModelSize.TotalBytes(fullPath);
+                    if (bytes.HasValue)
+                        size = $"{bytes.Value / (1024.0 * 1024.0 * 1024.0):F1} GB";
                 }
-                catch { /* file missing or unreadable */ }
+                catch { /* file unreadable */ }
 
                 if (string.IsNullOrEmpty(size))
                 {
