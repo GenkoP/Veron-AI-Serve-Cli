@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Veron;
@@ -69,9 +70,13 @@ public class ModelManagerTests
     readonly ManualTime _time = new();
     readonly HashSet<int> _deadPids = new();
 
-    ModelManager Manager(TimeSpan? keepAlive = null) =>
+    readonly List<string> _log = new();
+
+    ModelManager Manager(TimeSpan? keepAlive = null, Func<int, CancellationToken, Task<EffortCaps>>? probeEffort = null) =>
         new(_launcher, keepAlive ?? TimeSpan.FromMinutes(5), "/tmp/veron-test-logs", _time,
-            isPidAlive: pid => !_deadPids.Contains(pid), allocatePort: () => 40000 + _launcher.Starts.Count);
+            isPidAlive: pid => !_deadPids.Contains(pid), allocatePort: () => 40000 + _launcher.Starts.Count,
+            log: s => { lock (_log) _log.Add(s); },
+            probeEffort: probeEffort ?? ((_, _) => Task.FromResult(EffortCaps.None)));
 
     static async Task Eventually(Func<bool> condition)
     {
@@ -261,6 +266,39 @@ public class ModelManagerTests
         _launcher.FailWith = null;
         (await m.AcquireAsync(Model("a"), default)).Dispose();
         Assert.Single(m.Status());
+    }
+
+    [Fact]
+    public async Task Effort_Levels_Are_Read_Once_Per_Load_And_Exposed_On_The_Lease()
+    {
+        var caps  = new EffortCaps(["low", "medium", "xhigh"], ["minimal", "high", "max"]);
+        var ports = new List<int>();
+        using var m = Manager(probeEffort: (port, _) => { lock (ports) ports.Add(port); return Task.FromResult(caps); });
+
+        using (var l = await m.AcquireAsync(Model("a"), default))
+        {
+            Assert.Same(caps, l.Effort);
+            Assert.True(l.FirstEffortRewrite("high"));
+            Assert.False(l.FirstEffortRewrite("high"));
+        }
+        using (var l = await m.AcquireAsync(Model("a"), default)) Assert.False(l.FirstEffortRewrite("high"));
+
+        Assert.Equal(new[] { 40000 }, ports);                  // probed once, on the model's internal port
+        lock (_log) Assert.Contains("a template effort levels: low, medium, xhigh (rejected: minimal, high, max)", _log);
+
+        (await m.AcquireAsync(Model("b"), default)).Dispose(); // a new load probes again, with fresh rewrite logging
+        using (var l = await m.AcquireAsync(Model("b"), default)) Assert.True(l.FirstEffortRewrite("high"));
+        Assert.Equal(2, ports.Count);
+    }
+
+    [Fact]
+    public async Task Failing_Effort_Probe_Does_Not_Fail_The_Load()
+    {
+        using var m = Manager(probeEffort: (_, _) => throw new HttpRequestException("connection refused"));
+
+        using (var l = await m.AcquireAsync(Model("a"), default)) Assert.Same(EffortCaps.None, l.Effort);
+        Assert.Single(m.Status());
+        lock (_log) Assert.Contains("could not read chat template effort levels of a from /props: connection refused", _log);
     }
 
     [Fact]

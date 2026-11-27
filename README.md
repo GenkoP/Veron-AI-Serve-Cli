@@ -100,7 +100,18 @@ veron serve qwopus --keep-alive 30m
   message only at the start and fail the request with HTTP 500 ("System message must be at the beginning").
   For `POST /v1/messages` (and `/v1/messages/count_tokens`) Veron folds each such message into the adjacent
   user turn as a `<system-reminder>` text block before forwarding; the top-level `system` field and requests
-  without such messages are passed through untouched. OpenAI `/v1/chat/completions` bodies are never rewritten.
+  without such messages are passed through untouched. OpenAI `/v1/chat/completions` messages are never folded.
+- **Effort mapping.** llama-server answers HTTP 400 when the requested reasoning effort is a level the chat
+  template rejects (Qwen3.8 supports `low`/`medium`/`xhigh` and rejects `minimal`/`high`/`max`, while Claude Code
+  `--effort high` sends `output_config.effort: "high"` on every request). When a model loads, Veron reads the
+  template's levels once from llama-server's `GET /props` (`chat_template_caps.reasoning_effort_levels` /
+  `reasoning_effort_rejected`). A rejected level is replaced by the lowest supported level above it, else the
+  highest one below it (order `none` < `minimal` < `low` < `medium` < `high` < `xhigh` < `max`), so for Qwen3.8
+  `high`/`max` → `xhigh` and `minimal` → `low`. This applies to `output_config.effort` (`/v1/messages`,
+  `/v1/messages/count_tokens`), `reasoning_effort` (`/v1/chat/completions`, `/chat/completions`, their
+  `/input_tokens`, `/apply-template`) and `reasoning.effort` (`/v1/responses`, `/responses`, their `/input_tokens`).
+  Each distinct rewrite is logged once per load (`effort "high" not supported by <profile>'s template, using
+  "xhigh"`). Supported or unknown levels, and models whose `/props` has no level info, are passed through untouched.
 - **Logs.** Each model's llama-server output goes to `~/.veron/logs/<profile>.log`; load failures return
   HTTP 503 with the last log lines.
 

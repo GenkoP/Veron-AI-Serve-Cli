@@ -30,6 +30,7 @@ sealed class FakeLlamaServerLauncher : ILlamaLauncher
     public bool FailStartup { get; set; }
     public string? SlotsJson { get; set; }
     public string? LogText { get; set; }
+    public string? PropsJson { get; set; }   // null → /props answers 500
 
     public ILlamaProcess Start(ResolvedModel model, int port, string logPath)
     {
@@ -47,6 +48,8 @@ sealed class FakeLlamaServerLauncher : ILlamaLauncher
         app.MapGet("/health", () => FailStartup ? Results.StatusCode(503) : Results.Ok(new { status = "ok" }));
 
         app.MapGet("/slots", () => Results.Text(SlotsJson ?? "[]", "application/json"));
+
+        app.MapGet("/props", () => PropsJson is null ? Results.StatusCode(500) : Results.Text(PropsJson, "application/json"));
 
         // streams 3 SSE events; the last one only after the test releases it
         app.MapPost("/v1/chat/completions", async (HttpContext ctx) =>
@@ -69,6 +72,15 @@ sealed class FakeLlamaServerLauncher : ILlamaLauncher
             Requests.Enqueue((model.Name, ctx.Request.Path + ctx.Request.QueryString, body, ctx.Request.Headers["x-api-key"]));
             return Results.Json(new { type = "message", served_by = model.Name }, statusCode: 201);
         });
+
+        // plain JSON echo endpoints (effort mapping tests)
+        foreach (var path in new[] { "/v1/messages/count_tokens", "/v1/responses", "/chat/completions" })
+            app.MapPost(path, async (HttpContext ctx) =>
+            {
+                string body = await new StreamReader(ctx.Request.Body).ReadToEndAsync();
+                Requests.Enqueue((model.Name, ctx.Request.Path + ctx.Request.QueryString, body, null));
+                return Results.Json(new { served_by = model.Name });
+            });
 
         app.MapPost("/slow", async (HttpContext ctx) =>
         {
@@ -279,6 +291,102 @@ public sealed class DaemonProxyTests : IAsyncLifetime
         _launcher.ReleaseStream.TrySetResult();
         await resp.Content.ReadAsStringAsync();
         Assert.Equal(json, _launcher.Requests.Single().Body);
+    }
+
+    // ── Effort mapping ───────────────────────────────────────────────────
+
+    const string Qwen38Props =
+        "{\"chat_template_caps\":{\"reasoning_effort_levels\":[\"low\",\"medium\",\"xhigh\"],\"reasoning_effort_rejected\":[\"minimal\",\"high\",\"max\"]}}";
+
+    async Task<string> SendUpstream(string path, string json)
+    {
+        _launcher.ReleaseStream.TrySetResult(); // the fake /v1/chat/completions streams until released
+        using var resp = await _http.PostAsync(path, new StringContent(json, Encoding.UTF8, "application/json"));
+        Assert.True(resp.IsSuccessStatusCode, $"{path}: {(int)resp.StatusCode}");
+        await resp.Content.ReadAsStringAsync();
+        return _launcher.Requests.Last().Body;
+    }
+
+    [Theory]
+    [InlineData("/v1/messages",              "{\"model\":\"alpha\",\"output_config\":{\"effort\":\"high\"}}",  "output_config.effort", "high", "xhigh")]
+    [InlineData("/v1/messages/count_tokens", "{\"model\":\"alpha\",\"output_config\":{\"effort\":\"max\"}}",   "output_config.effort", "max", "xhigh")]
+    [InlineData("/v1/chat/completions",      "{\"model\":\"alpha\",\"reasoning_effort\":\"high\"}",              "reasoning_effort",     "high", "xhigh")]
+    [InlineData("/chat/completions",         "{\"model\":\"alpha\",\"reasoning_effort\":\"minimal\"}",           "reasoning_effort",     "minimal", "low")]
+    [InlineData("/v1/responses",             "{\"model\":\"alpha\",\"input\":\"hi\",\"reasoning\":{\"effort\":\"high\"}}", "reasoning.effort", "high", "xhigh")]
+    public async Task Rejected_Effort_Is_Mapped_Before_Upstream(string path, string json, string field, string from, string to)
+    {
+        _launcher.PropsJson = Qwen38Props;
+        var sent = JsonDocument.Parse(await SendUpstream(path, json)).RootElement;
+
+        var e = sent;
+        foreach (var name in field.Split('.')) e = e.GetProperty(name);
+        Assert.Equal(to, e.GetString());
+        lock (_log)
+        {
+            Assert.Contains("alpha template effort levels: low, medium, xhigh (rejected: minimal, high, max)", _log);
+            Assert.Contains($"effort \"{from}\" not supported by alpha's template, using \"{to}\"", _log);
+        }
+    }
+
+    [Theory]
+    [InlineData("/v1/messages",         "{\"model\":\"alpha\", \"output_config\":{\"effort\":\"xhigh\"}}")]
+    [InlineData("/v1/messages",         "{\"model\":\"alpha\", \"output_config\":{\"effort\":\"turbo\"}}")]
+    [InlineData("/v1/chat/completions", "{\"model\":\"alpha\", \"reasoning_effort\":\"medium\"}")]
+    [InlineData("/v1/responses",        "{\"model\":\"alpha\", \"reasoning\":{\"effort\":\"low\"}}")]
+    public async Task Supported_Or_Unknown_Effort_Is_Forwarded_Byte_For_Byte(string path, string json)
+    {
+        _launcher.PropsJson = Qwen38Props;
+        Assert.Equal(json, await SendUpstream(path, json));
+        lock (_log) Assert.DoesNotContain(_log, l => l.Contains("not supported by"));
+    }
+
+    [Fact]
+    public async Task Without_Props_Info_Rejected_Looking_Effort_Is_Not_Touched()
+    {
+        _launcher.PropsJson = null; // /props fails → load still succeeds, nothing is rewritten
+        string json = "{\"model\":\"alpha\", \"output_config\":{\"effort\":\"high\"}}";
+        Assert.Equal(json, await SendUpstream("/v1/messages", json));
+        lock (_log) Assert.Contains(_log, l => l.StartsWith("could not read chat template effort levels of alpha"));
+    }
+
+    [Fact]
+    public async Task Effort_Rewrite_Is_Logged_Once_Per_Loaded_Model()
+    {
+        _launcher.PropsJson = Qwen38Props;
+        string json = "{\"model\":\"alpha\",\"output_config\":{\"effort\":\"high\"}}";
+        await SendUpstream("/v1/messages", json);
+        await SendUpstream("/v1/messages", json);
+        await SendUpstream("/v1/messages", json.Replace("high", "max"));
+
+        lock (_log)
+        {
+            Assert.Single(_log, l => l.Contains("effort \"high\" not supported"));
+            Assert.Single(_log, l => l.Contains("effort \"max\" not supported"));
+        }
+        Assert.All(_launcher.Requests, r => Assert.Contains("\"effort\":\"xhigh\"", r.Body));
+    }
+
+    [Fact]
+    public async Task Fold_And_Effort_Mapping_Compose_On_Messages()
+    {
+        _launcher.PropsJson = Qwen38Props;
+        string json = JsonSerializer.Serialize(new
+        {
+            model = "alpha",
+            thinking = new { type = "adaptive" },
+            output_config = new { effort = "high" },
+            messages = new object[]
+            {
+                new { role = "user", content = "hello" },
+                new { role = "system", content = "env ü" },
+            },
+        });
+        var sent = JsonDocument.Parse(await SendUpstream("/v1/messages", json)).RootElement;
+
+        Assert.Equal("xhigh", sent.GetProperty("output_config").GetProperty("effort").GetString());
+        Assert.Equal("adaptive", sent.GetProperty("thinking").GetProperty("type").GetString());
+        var msg = Assert.Single(sent.GetProperty("messages").EnumerateArray());
+        Assert.Equal("<system-reminder>\nenv ü\n</system-reminder>", msg.GetProperty("content")[1].GetProperty("text").GetString());
     }
 
     [Fact]

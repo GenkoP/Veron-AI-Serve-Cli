@@ -14,7 +14,8 @@ namespace Veron.Daemon;
 /// Forwards any API request (OpenAI /v1/*, Anthropic /v1/messages, llama.cpp native) to the
 /// llama-server serving the request's "model", loading or swapping it first.
 /// The response is streamed back unchanged (SSE included). Request bodies are forwarded as-is,
-/// except that mid-conversation system messages in /v1/messages are folded (see <see cref="SystemMessageFolder"/>).
+/// except that mid-conversation system messages in /v1/messages are folded (see <see cref="SystemMessageFolder"/>)
+/// and a reasoning effort the chat template rejects is mapped to a supported one (see <see cref="EffortMapper"/>).
 /// </summary>
 public sealed class ProxyEndpoint(IModelRegistry registry, ModelManager manager, HttpClient http, Action<string> log)
 {
@@ -81,12 +82,20 @@ public sealed class ProxyEndpoint(IModelRegistry registry, ModelManager manager,
         catch (ModelLoadException ex) { await WriteErrorAsync(ctx, 503, "api_error", ex.Message); return; }
         catch (OperationCanceledException) { return; } // client went away while waiting
 
-        if (HttpMethods.IsPost(req.Method) && req.Path.StartsWithSegments("/v1/messages") &&
-            SystemMessageFolder.Fold(body, out _) is { } rewritten)
-            body = rewritten;
-
         using (lease)
         {
+            if (HttpMethods.IsPost(req.Method))
+            {
+                if (req.Path.StartsWithSegments("/v1/messages") && SystemMessageFolder.Fold(body, out _) is { } folded)
+                    body = folded;
+                if (EffortMapper.Rewrite(body, req.Path, lease.Effort, out var effort) is { } mapped)
+                {
+                    body = mapped;
+                    if (lease.FirstEffortRewrite(effort!.From))
+                        log($"effort \"{effort.From}\" not supported by {lease.Model.Name}'s template, using \"{effort.To}\"");
+                }
+            }
+
             using var up = new HttpRequestMessage(new HttpMethod(req.Method), lease.BaseUrl + req.Path + req.QueryString);
             if (body.Length > 0) up.Content = new ByteArrayContent(body);
 
