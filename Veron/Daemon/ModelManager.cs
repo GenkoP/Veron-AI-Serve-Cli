@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -32,6 +33,7 @@ public sealed class ModelManager : IDisposable
     readonly Func<int, bool> _isPidAlive;
     readonly Func<int> _allocatePort;
     readonly Action<string> _log;
+    readonly Func<int, CancellationToken, Task<EffortCaps>> _probeEffort;
 
     readonly object _sync = new();
     readonly SemaphoreSlim _gate = new(1, 1);            // serialises load / swap
@@ -43,7 +45,8 @@ public sealed class ModelManager : IDisposable
     public ModelManager(
         ILlamaLauncher launcher, TimeSpan defaultKeepAlive, string logsDir,
         TimeProvider? time = null, Func<int, bool>? isPidAlive = null,
-        Func<int>? allocatePort = null, Action<string>? log = null)
+        Func<int>? allocatePort = null, Action<string>? log = null,
+        Func<int, CancellationToken, Task<EffortCaps>>? probeEffort = null)
     {
         _launcher         = launcher;
         _defaultKeepAlive = defaultKeepAlive;
@@ -52,6 +55,7 @@ public sealed class ModelManager : IDisposable
         _isPidAlive       = isPidAlive ?? DefaultIsPidAlive;
         _allocatePort     = allocatePort ?? LlamaLauncher.FreePort;
         _log              = log ?? (_ => { });
+        _probeEffort      = probeEffort ?? EffortCaps.FetchAsync;
     }
 
     // ── State ────────────────────────────────────────────────────────────
@@ -61,6 +65,8 @@ public sealed class ModelManager : IDisposable
         public ResolvedModel Model { get; } = model;
         public ILlamaProcess Proc { get; } = proc;
         public DateTimeOffset LoadedAt { get; } = loadedAt;
+        public EffortCaps Effort { get; init; } = EffortCaps.None;  // chat template's reasoning effort levels
+        public readonly ConcurrentDictionary<string, byte> EffortRewritesLogged = new();
         public DateTimeOffset LastUsed;
         public int  Active;
         public bool Draining;          // a swap is waiting for in-flight requests
@@ -83,6 +89,10 @@ public sealed class ModelManager : IDisposable
         public ResolvedModel Model => Run.Model;
         public int Port => Run.Proc.Port;
         public string BaseUrl => "http://127.0.0.1:" + Run.Proc.Port;
+        public EffortCaps Effort => Run.Effort;
+
+        /// <summary>True the first time a rewrite of <paramref name="from"/> is seen for this loaded model.</summary>
+        public bool FirstEffortRewrite(string from) => Run.EffortRewritesLogged.TryAdd(from, 0);
 
         public void Dispose()
         {
@@ -186,10 +196,28 @@ public sealed class ModelManager : IDisposable
                 (tail.Length > 0 ? "\n" + tail : ""));
         }
 
-        var run = new Running(model, proc, _time.GetUtcNow());
+        var effort = await ProbeEffortAsync(model, proc.Port);
+        var run = new Running(model, proc, _time.GetUtcNow()) { Effort = effort };
         proc.Exited += () => OnExited(run);
         _log($"loaded {model.Name} (pid {proc.Pid})");
         return run;
+    }
+
+    /// <summary>Best effort: reads the template's effort levels from /props; any failure means "no info".</summary>
+    async Task<EffortCaps> ProbeEffortAsync(ResolvedModel model, int port)
+    {
+        EffortCaps caps;
+        try { caps = await _probeEffort(port, _shutdown.Token) ?? EffortCaps.None; }
+        catch (Exception ex)
+        {
+            _log($"could not read chat template effort levels of {model.Name} from /props: {ex.Message}");
+            return EffortCaps.None;
+        }
+        if (!caps.IsEmpty)
+            _log($"{model.Name} template effort levels: {Join(caps.Levels)} (rejected: {Join(caps.Rejected)})");
+        return caps;
+
+        static string Join(IReadOnlyList<string> l) => l.Count == 0 ? "-" : string.Join(", ", l);
     }
 
     void Release(Running r)
